@@ -252,9 +252,9 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 </div>
 
 <div class="header">
-  <div style="display:flex;flex-direction:column;gap:3px;">
-    <div class="logo" style="font-size:19px;letter-spacing:-.5px">대입통합검색기</div>
-    <div style="font-size:11px;color:#aaa;letter-spacing:0;font-weight:400">경기진협 자료개발국 간사 &nbsp;·&nbsp; 광명북고 진로진학부장 <span style="color:#ccc;font-weight:500">정현석</span></div>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <div class="logo" style="font-size:20px;letter-spacing:-.5px">대입통합검색기</div>
+    <div style="font-size:13px;color:#bbb;letter-spacing:0;font-weight:400">경기진협 자료개발국 간사 &nbsp;·&nbsp; 광명북고 진로진학부장 <span style="color:#fff;font-weight:700">정현석</span></div>
   </div>
   <div class="hdr-right">
     <div class="data-status">
@@ -289,7 +289,7 @@ tbody td.r{text-align:right;font-family:var(--mono);}
           <input type="file" id="csvInput" accept=".csv" onchange="handleFile(this.files[0])"/>
           📂 CSV 파일 클릭 또는 드래그
         </div>
-        <div class="a-hint">구글시트 → 파일 → 다운로드 → CSV로 저장 후 업로드. 브라우저에 저장되어 다음에도 자동 로드.</div>
+        <div class="a-hint">데이터는 구글 시트에서 자동 로드됩니다.<br>시트 주소: <span style="color:#4ade80;font-family:var(--mono);font-size:10px">docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28</span><br>CSV 업로드는 임시 미리보기용입니다.</div>
       </div>
     </div>
     <hr class="a-div">
@@ -311,12 +311,9 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 <div class="main">
   <!-- 사이드바 -->
   <div class="sidebar">
-    <div class="sec">학생 정보</div>
-    <div class="s4">
-      <div class="ig"><div class="fl">학년</div><input class="fi" id="grade" type="number" value="3" min="1" max="3"/></div>
-      <div class="ig"><div class="fl">반</div><input class="fi" id="cls" type="number" value="1"/></div>
-      <div class="ig"><div class="fl">번호</div><input class="fi" id="num" type="number" value="1"/></div>
-      <div class="ig"><div class="fl">이름</div><input class="fi" id="sname" type="text" placeholder="선택"/></div>
+    <div style="padding:10px 12px;background:var(--up-bg);border:1px solid #a7d5b8;border-radius:8px;margin-bottom:4px;">
+      <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:3px;">접속 계정</div>
+      <div style="font-size:12px;color:var(--text-2);font-family:var(--mono);word-break:break-all;" id="userEmailDisplay">—</div>
     </div>
 
     <hr class="dv">
@@ -433,8 +430,9 @@ const firebaseConfig = {
   appId: "1:395338642740:web:c902a7e5f39e61adce2161"
 };
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+
 
 // ── 허가된 이메일 목록 (Firestore에서 불러옴) ──
 let allowedEmails = new Set();
@@ -491,7 +489,11 @@ async function doLogin() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('logoutBtn').style.display   = 'inline-block';
   document.getElementById('logoutBtn').title = email;
+  document.getElementById('userEmailDisplay').textContent = email;
   btn.disabled = false; btn.textContent = '접속하기';
+
+  // Firebase Storage에서 CSV 자동 로드
+  await loadCsvFromStorage();
 }
 
 function doLogout() {
@@ -509,7 +511,7 @@ loadAllowedEmails();
 // ════════════════════════════════════════════════════
 // CONFIG
 // ════════════════════════════════════════════════════
-const ADMIN_PW_DEFAULT = 'susinavi2026';
+const ADMIN_PW_DEFAULT = 'xhd1212';
 const LS = { pw:'snavi_pw', csv:'snavi_csv5' };
 
 const C = {
@@ -547,12 +549,8 @@ let fVerdict = new Set(['all']);
 // 초기화
 // ════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem(LS.csv);
-  if (saved) { rawData = parseCSV(saved); finishLoad(); }
-  else {
-    setStatus('err','데이터 없음');
-    setBody(`<div class="empty"><div class="empty-icon">📭</div><h3>데이터가 없습니다</h3><p>우측 상단 <strong>⚙ 관리자</strong> → CSV 파일 업로드</p></div>`);
-  }
+  setStatus('err','로그인 후 데이터 로드됩니다');
+  setBody(`<div class="empty"><div class="empty-icon">🔐</div><h3>로그인이 필요합니다</h3><p>허가된 이메일로 로그인하세요.</p></div>`);
 });
 
 // ════════════════════════════════════════════════════
@@ -565,13 +563,31 @@ function handleFile(file) {
     const text = e.target.result;
     rawData = parseCSV(text);
     if (!rawData.length) { showToast('데이터가 없습니다'); return; }
-    try { localStorage.setItem(LS.csv, text); } catch(e2) { showToast('저장 용량 초과 — 세션에만 유지'); }
     finishLoad();
-    document.getElementById('fileDrop').innerHTML = `✓ ${file.name} (${rawData.length.toLocaleString()}행)`;
-    showToast(`✓ ${rawData.length.toLocaleString()}행 로드 완료`);
+    document.getElementById('fileDrop').innerHTML = `✓ ${file.name} (${rawData.length.toLocaleString()}행) — 임시 로드 완료`;
+    showToast(`✓ ${rawData.length.toLocaleString()}행 로드 완료 (구글 시트 반영은 시트에서 직접 수정)`);
     closeAdmin();
   };
   reader.readAsText(file, 'UTF-8');
+}
+
+// 구글 시트에서 CSV 자동 로드
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=0';
+
+async function loadCsvFromStorage() {
+  setStatus('loading', '데이터 불러오는 중...');
+  setBody(`<div class="spin-wrap"><div class="spinner"></div><span style="font-size:12px;color:var(--text-3)">데이터 불러오는 중...</span></div>`);
+  try {
+    const res = await fetch(SHEET_CSV_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    rawData = parseCSV(text);
+    if (!rawData.length) throw new Error('데이터 없음');
+    finishLoad();
+  } catch(e) {
+    setStatus('err', '데이터 로드 실패');
+    setBody(`<div class="empty"><div class="empty-icon">📭</div><h3>데이터 로드 실패</h3><p>잠시 후 다시 시도하거나 관리자에게 문의하세요.<br><small style="color:var(--text-3)">${e.message}</small></p></div>`);
+  }
 }
 
 function finishLoad() {
@@ -1098,7 +1114,7 @@ function changePw(){
 }
 function clearData(){
   if(!confirm('저장된 데이터를 삭제하시겠습니까?'))return;
-  localStorage.removeItem(LS.csv); location.reload();
+  location.reload();
 }
 
 // ════════════════════════════════════════════════════
