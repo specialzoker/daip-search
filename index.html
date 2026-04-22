@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대입통합검색기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f4f0;--surface:#fff;--border:#e0ddd5;--border-strong:#c8c4ba;
+  --text:#1a1916;--text-2:#4a4844;--text-3:#8a8680;
+  --accent:#1a6b3c;--up:#1a6b3c;--up-bg:#e8f5ee;
+  --mid:#b45309;--mid-bg:#fef3c7;--dn:#be123c;--dn-bg:#ffe4e6;
+  --font:'Noto Sans KR',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
+
+/* ── 헤더 ── */
+.header{background:var(--text);color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;}.logo span{color:#4ade80;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.data-status{font-size:11px;color:#888;display:flex;align-items:center;gap:6px;}
+.dot{width:7px;height:7px;border-radius:50%;background:#555;flex-shrink:0;}
+.dot.ok{background:#4ade80;}.dot.err{background:#f87171;}.dot.loading{background:#fbbf24;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.admin-btn{font-size:11px;color:#888;background:none;border:1px solid #444;border-radius:4px;padding:3px 9px;cursor:pointer;font-family:var(--font);}
+.admin-btn:hover{color:#ccc;border-color:#666;}
+
+/* ── 관리자 패널 ── */
+.admin-panel{background:#111;border-bottom:2px solid #333;padding:14px 24px;display:none;}
+.admin-panel.open{display:block;}
+.admin-panel h4{color:#4ade80;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;}
+.a-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+.a-label{font-size:11px;color:#888;width:86px;flex-shrink:0;}
+.a-input{font-family:var(--mono);font-size:11px;border:1px solid #333;border-radius:5px;padding:5px 10px;background:#1a1a1a;color:#eee;}
+.a-input:focus{outline:1px solid #4ade80;}
+.abtn{border:none;border-radius:5px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.abtn-g{background:#166534;color:#fff;}.abtn-g:hover{background:#15803d;}
+.abtn-n{background:#333;color:#aaa;}.abtn-n:hover{background:#444;}
+.abtn-r{background:#7f1d1d;color:#fff;}
+.a-div{border:none;border-top:1px solid #2a2a2a;margin:10px 0;}
+.file-drop{border:1px dashed #444;border-radius:6px;padding:10px 18px;text-align:center;color:#666;font-size:11px;cursor:pointer;flex:1;min-width:240px;transition:all .2s;}
+.file-drop:hover,.file-drop.over{border-color:#4ade80;color:#4ade80;}
+.file-drop input{display:none;}
+.a-hint{font-size:10px;color:#555;margin-top:4px;line-height:1.6;}
+
+/* ── 레이아웃 ── */
+.main{display:grid;grid-template-columns:272px 1fr;min-height:calc(100vh - 48px);}
+
+/* ── 사이드바 ── */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:16px;overflow-y:auto;}
+.sec{font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin:16px 0 8px;}
+.sec:first-child{margin-top:0;}
+.fl{font-size:11px;color:var(--text-3);margin-bottom:3px;font-weight:500;}
+.fi,.fs{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px;font-family:var(--font);background:var(--bg);color:var(--text);}
+.fi:focus,.fs:focus{outline:none;border-color:var(--accent);background:#fff;}
+.fs{appearance:none;cursor:pointer;}
+.ig{margin-bottom:10px;}
+.s4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px;}
+hr.dv{border:none;border-top:1px solid var(--border);margin:12px 0;}
+
+/* 내신 입력 박스 */
+.grade-box{display:flex;align-items:center;gap:12px;background:var(--up-bg);border:1.5px solid var(--accent);border-radius:8px;padding:10px 14px;}
+.grade-box input{border:none;background:transparent;font-size:26px;font-weight:700;font-family:var(--mono);color:var(--accent);width:84px;text-align:center;outline:none;}
+.grade-box input::placeholder{color:#a7d5b8;font-size:20px;}
+.grade-hint{font-size:11px;color:var(--accent);line-height:1.6;opacity:.8;}
+
+/* 수능 백분위 그리드 */
+.su-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.su-k{font-size:11px;color:var(--text-2);width:46px;flex-shrink:0;}
+.su-v{flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);background:var(--bg);color:var(--text);text-align:right;}
+.su-v:focus{outline:none;border-color:var(--accent);background:#fff;}
+.su-u{font-size:10px;color:var(--text-3);width:22px;flex-shrink:0;}
+.avg-row{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-top:4px;}
+.avg-k{font-size:11px;color:var(--text-3);flex:1;}
+.avg-v{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);}
+
+/* 필터 칩 */
+.chips{display:flex;flex-wrap:wrap;gap:5px;}
+.chip{border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;cursor:pointer;background:var(--bg);color:var(--text-2);user-select:none;transition:all .15s;}
+.chip.on{background:var(--text);color:#fff;border-color:var(--text);}
+
+.btn-go{width:100%;background:var(--text);color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:8px;letter-spacing:-.3px;transition:opacity .15s;}
+.btn-go:hover{opacity:.85;}
+.btn-go:disabled{opacity:.35;cursor:not-allowed;}
+
+/* ── 결과 영역 ── */
+.result-area{padding:16px;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+.res-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;flex-wrap:wrap;gap:8px;}
+.res-cnt{font-size:12px;color:var(--text-3);}
+.res-cnt strong{color:var(--text);font-weight:700;}
+.sort-sel{border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:11px;background:var(--bg);color:var(--text);font-family:var(--font);cursor:pointer;}
+
+/* 범례 */
+.legend{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text-3);}
+.leg{display:flex;align-items:center;gap:3px;}
+
+/* 테이블 */
+.table-wrap{overflow:auto;flex:1;border:1px solid var(--border);border-radius:8px;min-height:0;}
+table{width:100%;border-collapse:collapse;font-size:11px;min-width:860px;}
+thead th{background:var(--text);color:#fff;padding:8px 10px;text-align:left;font-weight:500;font-size:10px;white-space:nowrap;border-right:1px solid #2a2a2a;position:sticky;top:0;z-index:2;}
+thead th:last-child{border-right:none;}
+thead th.c{text-align:center;}
+thead th.r{text-align:right;}
+
+tbody tr.school-row{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+tbody tr.school-row:hover{background:#f0efe9;}
+tbody td{padding:8px 10px;white-space:nowrap;vertical-align:middle;}
+tbody td.c{text-align:center;}
+tbody td.r{text-align:right;font-family:var(--mono);}
+
+/* 전형 판정 셀 — 3칸 나란히 */
+.verdict-cells{display:flex;gap:6px;align-items:stretch;}
+.vc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:78px;min-height:64px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);}
+.vc.vc-stable{background:#eff6ff;border-color:#93c5fd;}
+.vc.vc-up{background:var(--up-bg);border-color:#a7d5b8;}
+.vc.vc-mid{background:var(--mid-bg);border-color:#f5cfa0;}
+.vc.vc-dn{background:var(--dn-bg);border-color:#fca5a5;}
+.vc.vc-stop{background:#fdf2f8;border-color:#f9a8d4;}
+.vc.vc-none{background:var(--bg);border-color:var(--border);opacity:.45;}
+.vc-type{font-size:9px;font-weight:700;letter-spacing:.3px;}
+.vc-stable .vc-type{color:#1d4ed8;}
+.vc-up .vc-type{color:var(--up);}
+.vc-mid .vc-type{color:var(--mid);}
+.vc-dn .vc-type{color:var(--dn);}
+.vc-none .vc-type{color:var(--text-3);}
+.vc-label{font-size:10px;font-weight:700;}
+.vc-stable .vc-label{color:#1d4ed8;}
+.vc-up .vc-label{color:var(--up);}
+.vc-mid .vc-label{color:var(--mid);}
+.vc-dn .vc-label{color:var(--dn);}
+.vc-none .vc-label{color:var(--text-3);}
+.vc-diff{font-size:10px;font-family:var(--mono);}
+.vc-up .vc-diff{color:var(--up);}
+.vc-mid .vc-diff{color:var(--mid);}
+.vc-dn .vc-diff{color:var(--dn);}
+.vc-stop .vc-type{color:#9d174d;}
+.vc-stop .vc-label{color:#9d174d;}
+.vc-stop .vc-diff{color:#9d174d;}
+.vc-none .vc-diff{color:var(--text-3);}
+
+/* 최고판정 배지 */
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;}
+.b-stable{background:#eff6ff;color:#1d4ed8;}
+.b-up{background:var(--up-bg);color:var(--up);}
+.b-mid{background:var(--mid-bg);color:var(--mid);}
+.b-dn{background:var(--dn-bg);color:var(--dn);}
+.b-stop{background:#fdf2f8;color:#9d174d;}
+.b-none{background:var(--bg);color:var(--text-3);border:1px solid var(--border);}
+
+/* 빈/로딩 */
+.empty{text-align:center;padding:60px 20px;color:var(--text-3);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+.empty h3{font-size:15px;color:var(--text-2);margin-bottom:6px;font-weight:500;}
+.empty p{font-size:12px;line-height:1.8;}
+.spin-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:12px;}
+.spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 상세 팝업 ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;}
+.modal{background:var(--surface);border-radius:12px;padding:0;width:580px;max-width:93vw;max-height:88vh;overflow-y:auto;display:flex;flex-direction:column;}
+.modal-head{padding:20px 24px 0;flex-shrink:0;}
+.modal-head h3{font-size:17px;font-weight:700;}
+.modal-head .sub{font-size:12px;color:var(--text-3);margin-top:3px;}
+.modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-3);line-height:1;}
+.modal-body{padding:16px 24px 24px;overflow-y:auto;}
+.m-sec{margin-bottom:18px;}
+.m-sec h4{font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.m-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
+.m-row:last-child{border-bottom:none;}
+.m-k{font-size:12px;color:var(--text-2);}
+.m-v{font-size:12px;font-family:var(--mono);font-weight:500;}
+
+/* 상세 전형 카드 */
+.detail-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;}
+.dcard{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--bg);}
+.dcard.dc-stable{background:#eff6ff;border-color:#93c5fd;}
+.dcard.dc-up{background:var(--up-bg);border-color:#a7d5b8;}
+.dcard.dc-mid{background:var(--mid-bg);border-color:#f5cfa0;}
+.dcard.dc-dn{background:var(--dn-bg);border-color:#fca5a5;}
+.dcard.dc-stop{background:#fdf2f8;border-color:#f9a8d4;}
+.dcard.dc-none{opacity:.5;}
+.dcard-type{font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:6px;}
+.dcard.dc-stable .dcard-type{color:#1d4ed8;}
+.dcard.dc-up .dcard-type{color:var(--up);}
+.dcard.dc-mid .dcard-type{color:var(--mid);}
+.dcard.dc-dn .dcard-type{color:var(--dn);}
+.dcard-verdict{font-size:14px;font-weight:700;margin-bottom:4px;}
+.dcard.dc-stable .dcard-verdict{color:#1d4ed8;}
+.dcard.dc-up .dcard-verdict{color:var(--up);}
+.dcard.dc-mid .dcard-verdict{color:var(--mid);}
+.dcard.dc-dn .dcard-verdict{color:var(--dn);}
+.dcard-none .dcard-verdict{color:var(--text-3);}
+.dcard-line{font-size:11px;color:var(--text-3);margin-bottom:2px;}
+.dcard-line span{font-family:var(--mono);color:var(--text-2);}
+.dcard-diff{font-size:13px;font-weight:700;font-family:var(--mono);margin-top:4px;}
+.dcard.dc-stable .dcard-diff{color:#1d4ed8;}
+.dcard.dc-up .dcard-diff{color:var(--up);}
+.dcard.dc-stop .dcard-diff{color:#9d174d;}
+.dcard.dc-mid .dcard-diff{color:var(--mid);}
+.dcard.dc-dn .dcard-diff{color:var(--dn);}
+
+/* 전형명 서브텍스트 */
+.typename{font-size:10px;color:var(--text-3);margin-top:2px;}
+
+/* 토스트 */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;z-index:999;opacity:0;transform:translateY(6px);transition:all .25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<style>
+/* ── 로그인 화면 ── */
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:380px;max-width:92vw;text-align:center;}
+.login-logo{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.login-logo span{color:var(--accent);}
+.login-sub{font-size:11px;color:var(--text-3);margin-bottom:28px;line-height:1.6;}
+.login-label{font-size:11px;color:var(--text-3);text-align:left;display:block;margin-bottom:4px;font-weight:500;}
+.login-input{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:14px;font-family:var(--font);background:var(--bg);color:var(--text);margin-bottom:12px;transition:border-color .15s;}
+.login-input:focus{outline:none;border-color:var(--accent);background:#fff;}
+.login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:4px;transition:opacity .15s;}
+.login-btn:hover{opacity:.85;}
+.login-btn:disabled{opacity:.4;cursor:not-allowed;}
+.login-err{font-size:12px;color:var(--dn);margin-top:8px;min-height:18px;}
+.login-spinner{display:none;width:20px;height:20px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto;}
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">대입통합검색기</div>
+    <div class="login-sub">
+      경기진협 자료개발국 간사<br>
+      광명북고 진로진학부장 <strong>정현석</strong><br><br>
+      허가된 이메일로 접속하세요
+    </div>
+    <label class="login-label">이메일 주소</label>
+    <input class="login-input" id="loginEmail" type="email" placeholder="example@school.kr"
+      onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">접속하기</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-spinner" id="loginSpinner"></div>
+  </div>
+</div>
+
+<div class="header">
+  <div style="display:flex;flex-direction:column;gap:3px;">
+    <div class="logo" style="font-size:19px;letter-spacing:-.5px">대입통합검색기</div>
+    <div style="font-size:11px;color:#aaa;letter-spacing:0;font-weight:400">경기진협 자료개발국 간사 &nbsp;·&nbsp; 광명북고 진로진학부장 <span style="color:#ccc;font-weight:500">정현석</span></div>
+  </div>
+  <div class="hdr-right">
+    <div class="data-status">
+      <div class="dot loading" id="statusDot"></div>
+      <span id="statusTxt">데이터 로딩 중...</span>
+    </div>
+    <button class="admin-btn" onclick="toggleAdmin()">⚙ 관리자</button>
+    <button class="admin-btn" id="logoutBtn" onclick="doLogout()" style="display:none;border-color:#f87171;color:#f87171;">로그아웃</button>
+  </div>
+</div>
+
+<!-- 관리자 패널 -->
+<div class="admin-panel" id="adminPanel">
+  <div id="adminLock">
+    <div class="a-row">
+      <span class="a-label" style="color:#888">관리자 비밀번호</span>
+      <input class="a-input" style="width:160px" id="adminPw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')checkPw()"/>
+      <button class="abtn abtn-g" onclick="checkPw()">확인</button>
+      <button class="abtn abtn-n" onclick="closeAdmin()">닫기</button>
+    </div>
+  </div>
+  <div id="adminContent" style="display:none">
+    <h4>관리자 모드</h4>
+    <div class="a-row" style="align-items:flex-start">
+      <span class="a-label" style="margin-top:10px">CSV 업로드</span>
+      <div style="flex:1">
+        <div class="file-drop" id="fileDrop"
+          onclick="document.getElementById('csvInput').click()"
+          ondragover="event.preventDefault();this.classList.add('over')"
+          ondragleave="this.classList.remove('over')"
+          ondrop="event.preventDefault();this.classList.remove('over');handleFile(event.dataTransfer.files[0])">
+          <input type="file" id="csvInput" accept=".csv" onchange="handleFile(this.files[0])"/>
+          📂 CSV 파일 클릭 또는 드래그
+        </div>
+        <div class="a-hint">구글시트 → 파일 → 다운로드 → CSV로 저장 후 업로드. 브라우저에 저장되어 다음에도 자동 로드.</div>
+      </div>
+    </div>
+    <hr class="a-div">
+    <div class="a-row">
+      <span class="a-label">비밀번호 변경</span>
+      <input class="a-input" style="width:150px" id="pw1" type="password" placeholder="새 비밀번호"/>
+      <input class="a-input" style="width:150px" id="pw2" type="password" placeholder="확인"/>
+      <button class="abtn abtn-n" onclick="changePw()">변경</button>
+    </div>
+    <hr class="a-div">
+    <div class="a-row">
+      <span class="a-label">초기화</span>
+      <button class="abtn abtn-r" onclick="clearData()">데이터 삭제 후 재시작</button>
+      <button class="abtn abtn-n" onclick="closeAdmin()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 사이드바 -->
+  <div class="sidebar">
+    <div class="sec">학생 정보</div>
+    <div class="s4">
+      <div class="ig"><div class="fl">학년</div><input class="fi" id="grade" type="number" value="3" min="1" max="3"/></div>
+      <div class="ig"><div class="fl">반</div><input class="fi" id="cls" type="number" value="1"/></div>
+      <div class="ig"><div class="fl">번호</div><input class="fi" id="num" type="number" value="1"/></div>
+      <div class="ig"><div class="fl">이름</div><input class="fi" id="sname" type="text" placeholder="선택"/></div>
+    </div>
+
+    <hr class="dv">
+    <div class="sec">내신 전체 등급</div>
+    <div class="grade-box">
+      <input id="naesin" type="number" step="0.01" min="1" max="9" placeholder="2.34" oninput="onInput()"/>
+      <div class="grade-hint">전체 내신 등급<br><span style="font-size:10px;opacity:.7">소수점 둘째 자리까지</span></div>
+    </div>
+
+    <hr class="dv">
+    <div class="sec">수능 영역별 백분위</div>
+    <div class="su-row"><span class="su-k">국어</span><input class="su-v" id="su_kor" type="number" step="0.01" min="0" max="100" placeholder="93.67" oninput="onInput()"/><span class="su-u">%</span></div>
+    <div class="su-row"><span class="su-k">수학</span><input class="su-v" id="su_mat" type="number" step="0.01" min="0" max="100" placeholder="91.20" oninput="onInput()"/><span class="su-u">%</span></div>
+    <div class="su-row"><span class="su-k">탐구①</span><input class="su-v" id="su_ex1" type="number" step="0.01" min="0" max="100" placeholder="90.00" oninput="onInput()"/><span class="su-u">%</span></div>
+    <div class="su-row"><span class="su-k">탐구②</span><input class="su-v" id="su_ex2" type="number" step="0.01" min="0" max="100" placeholder="89.00" oninput="onInput()"/><span class="su-u">%</span></div>
+    <div class="avg-row"><span class="avg-k">수능 평균 (참고용)</span><span class="avg-v" id="suAvg">—</span></div>
+    <div style="font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.5">실제 계산은 학교별 반영영역에 따라<br>다르게 적용됩니다</div>
+
+    <hr class="dv">
+    <div class="sec">필터</div>
+    <div class="ig">
+      <div class="fl">권역</div>
+      <div class="chips" id="fRegion">
+        <span class="chip on" data-v="all">전체</span>
+        <span class="chip" data-v="서울">서울</span>
+        <span class="chip" data-v="경인권">경인권</span>
+        <span class="chip" data-v="충청권">충청권</span>
+        <span class="chip" data-v="경상권">경상권</span>
+        <span class="chip" data-v="전라권">전라권</span>
+        <span class="chip" data-v="강원권">강원권</span>
+      </div>
+    </div>
+    <div class="ig" style="margin-top:8px">
+      <div class="fl">계열</div>
+      <div class="chips" id="fSeries">
+        <span class="chip on" data-v="all">전체</span>
+        <span class="chip" data-v="자연">자연</span>
+        <span class="chip" data-v="인문">인문</span>
+        <span class="chip" data-v="공통">공통</span>
+        <span class="chip" data-v="예체능">예체능</span>
+      </div>
+    </div>
+    <div class="ig" style="margin-top:8px">
+      <div class="fl">판정 기준 (최고 전형 기준)</div>
+      <div class="chips" id="fVerdict">
+        <span class="chip on" data-v="all">전체</span>
+        <span class="chip" data-v="가능">가능 이상</span>
+        <span class="chip" data-v="경계">경계 이상</span>
+      </div>
+    </div>
+    <div class="ig" style="margin-top:8px">
+      <div class="fl">학과 키워드</div>
+      <input class="fi" id="kw" type="text" placeholder="예: 의예, 컴퓨터, 경영"/>
+    </div>
+    <button class="btn-go" id="btnGo" onclick="doSearch()" disabled>추천 학교·학과 검색</button>
+  </div>
+
+  <!-- 결과 -->
+  <div class="result-area">
+    <div class="res-hdr">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span class="res-cnt" id="resCnt">결과 없음</span>
+        <div class="legend">
+          <span style="font-size:11px;color:var(--text-3);margin-right:2px">판정:</span>
+          <div class="leg"><span class="badge b-stable">안정</span></div>
+          <div class="leg"><span class="badge b-up">가능</span></div>
+          <div class="leg"><span class="badge b-mid">경계</span></div>
+          <div class="leg"><span class="badge b-dn">위험</span></div>
+          <div class="leg"><span class="badge b-stop">그러지마</span></div>
+          <span style="font-size:11px;color:var(--text-3);margin-left:6px">전형 셀:</span>
+          <div class="leg" style="font-size:11px;color:var(--text-3)">교과 · 종합 · 정시 순서</div>
+        </div>
+      </div>
+      <select class="sort-sel" id="sortSel" onchange="render()">
+        <option value="best">최고판정 순</option>
+        <option value="gyo">교과 차이값 순</option>
+        <option value="jong">종합 차이값 순</option>
+        <option value="su">정시 차이값 순</option>
+        <option value="univ">대학명 순</option>
+        <option value="dept">학과명 순</option>
+      </select>
+    </div>
+
+    <div class="table-wrap" id="resultBody">
+      <div class="spin-wrap"><div class="spinner"></div><span style="font-size:12px;color:var(--text-3)">데이터 불러오는 중...</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 상세 팝업 -->
+<div class="modal-bg" id="modalBg" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h3 id="mTitle"></h3>
+      <div class="sub" id="mSub"></div>
+    </div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════
+// Firebase 설정 — 본인 프로젝트 config로 교체하세요
+// ════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAF0-GXeRRrtUsdQgS3L-CjkAL4eUrM3cc",
+  authDomain: "search-alluniv.firebaseapp.com",
+  projectId: "search-alluniv",
+  storageBucket: "search-alluniv.firebasestorage.app",
+  messagingSenderId: "395338642740",
+  appId: "1:395338642740:web:c902a7e5f39e61adce2161"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── 허가된 이메일 목록 (Firestore에서 불러옴) ──
+let allowedEmails = new Set();
+let currentUser   = null;
+
+// Firestore에서 허가 이메일 목록 로드
+async function loadAllowedEmails() {
+  try {
+    const snap = await db.collection('allowed_emails').get();
+    allowedEmails.clear();
+    snap.forEach(doc => allowedEmails.add(doc.id.toLowerCase()));
+  } catch(e) {
+    console.error('이메일 목록 로드 실패:', e);
+  }
+}
+
+// 로그인 처리
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const btn   = document.getElementById('loginBtn');
+  const err   = document.getElementById('loginErr');
+  const spin  = document.getElementById('loginSpinner');
+  err.textContent = '';
+  if (!email) { err.textContent = '이메일을 입력하세요.'; return; }
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { err.textContent = '올바른 이메일 형식이 아닙니다.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '';
+  spin.style.display = 'block';
+  btn.appendChild(spin);
+
+  await loadAllowedEmails();
+
+  if (!allowedEmails.has(email)) {
+    err.textContent = '접근 권한이 없습니다. 관리자에게 문의하세요.';
+    btn.disabled = false; btn.textContent = '접속하기'; spin.style.display='none';
+    return;
+  }
+
+  // 접속 로그 기록
+  try {
+    await db.collection('access_logs').add({
+      email,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      ua: navigator.userAgent.substring(0, 100),
+    });
+  } catch(e) { console.warn('로그 기록 실패:', e); }
+
+  // 로그인 완료
+  currentUser = email;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('logoutBtn').style.display   = 'inline-block';
+  document.getElementById('logoutBtn').title = email;
+  btn.disabled = false; btn.textContent = '접속하기'; spin.style.display='none';
+}
+
+function doLogout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  currentUser = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display   = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginErr').textContent = '';
+}
+
+// 페이지 로드 시 이메일 목록 미리 로드
+loadAllowedEmails();
+
+// ════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════
+const ADMIN_PW_DEFAULT = 'susinavi2026';
+const LS = { pw:'snavi_pw', csv:'snavi_csv5' };
+
+const C = {
+  kwon:'권역', region:'지역', sub:'세부지역',
+  univ:'대학명', dept26:'2026 수시 모집단위', dept25:'2025 수시 모집단위',
+  series:'계열',
+  g1t:'교과1/전형', g1_50:'교과1/50%', g1_70:'교과1/70%',
+  g2t:'교과2/전형', g2_50:'교과2/50%', g2_70:'교과2/70%',
+  g3t:'교과3/전형', g3_50:'교과3/50%', g3_70:'교과3/70%',
+  j1t:'종합1/전형', j1_50:'종합1/50%', j1_70:'종합1/70%',
+  j2t:'종합2/전형', j2_50:'종합2/50%', j2_70:'종합2/70%',
+  su_pct:'정시백분위', su_area:'2025 정시 반영영역', su_enghis:'영어한국사',
+  chg_type:'전형변경', chg_dept:'모집단위변경',
+};
+
+// 판정 임계값
+const THR = {
+  grade: { stable:-0.5, safe:0, border:0.3, warn:0.7 },
+  pct:   { stable:5.0,  safe:2.0, border:-2.0, warn:-5.0 },
+};
+
+// ════════════════════════════════════════════════════
+// 상태
+// ════════════════════════════════════════════════════
+let rawData = [];
+// 병합된 학교별 결과 { univ, dept, series, kwon, region, sub, gyo:[], jong:[], su:{}, _row }
+let schools = [];
+let filtered = [];  // 필터 후 schools 배열
+
+let fRegion  = new Set(['all']);
+let fSeries  = new Set(['all']);
+let fVerdict = new Set(['all']);
+
+// ════════════════════════════════════════════════════
+// 초기화
+// ════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(LS.csv);
+  if (saved) { rawData = parseCSV(saved); finishLoad(); }
+  else {
+    setStatus('err','데이터 없음');
+    setBody(`<div class="empty"><div class="empty-icon">📭</div><h3>데이터가 없습니다</h3><p>우측 상단 <strong>⚙ 관리자</strong> → CSV 파일 업로드</p></div>`);
+  }
+});
+
+// ════════════════════════════════════════════════════
+// CSV 업로드
+// ════════════════════════════════════════════════════
+function handleFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.csv')) { showToast('CSV 파일만 가능합니다'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    rawData = parseCSV(text);
+    if (!rawData.length) { showToast('데이터가 없습니다'); return; }
+    try { localStorage.setItem(LS.csv, text); } catch(e2) { showToast('저장 용량 초과 — 세션에만 유지'); }
+    finishLoad();
+    document.getElementById('fileDrop').innerHTML = `✓ ${file.name} (${rawData.length.toLocaleString()}행)`;
+    showToast(`✓ ${rawData.length.toLocaleString()}행 로드 완료`);
+    closeAdmin();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function finishLoad() {
+  setStatus('ok', `${rawData.length.toLocaleString()}개 행 준비됨`);
+  document.getElementById('btnGo').disabled = false;
+  setBody(`<div class="empty"><div class="empty-icon">✅</div><h3>데이터 준비 완료</h3><p>내신 등급과 수능 백분위를 입력하고<br><strong>추천 학교·학과 검색</strong>을 눌러주세요.</p></div>`);
+}
+
+// ════════════════════════════════════════════════════
+// CSV 파서
+// ════════════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
+  if (lines.length < 2) return [];
+  const hdrs = splitLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+  return lines.slice(1).map(line => {
+    const vs = splitLine(line); const obj={};
+    hdrs.forEach((h,i) => obj[h]=(vs[i]||'').replace(/^"|"$/g,'').trim());
+    return obj;
+  }).filter(r=>Object.values(r).some(v=>v));
+}
+function splitLine(s) {
+  const r=[]; let cur='', q=false;
+  for(let i=0;i<s.length;i++){
+    if(s[i]==='"') q=!q;
+    else if(s[i]===','&&!q){r.push(cur);cur='';}
+    else cur+=s[i];
+  }
+  r.push(cur); return r;
+}
+const n = v => { const x=parseFloat(String(v||'').replace(/,/g,'')); return isNaN(x)?null:x; };
+const dash = v => (!v||v==='-'||String(v).toLowerCase()==='nan')?null:String(v).trim();
+
+// ════════════════════════════════════════════════════
+// 입력 변경 → 수능 평균 계산
+// ════════════════════════════════════════════════════
+function onInput() {
+  const ids=['su_kor','su_mat','su_ex1','su_ex2'];  // 영어 제외(절대평가)
+  const vs=ids.map(id=>n(document.getElementById(id).value)).filter(v=>v!==null&&v>=0&&v<=100);
+  document.getElementById('suAvg').textContent = vs.length
+    ? (vs.reduce((a,b)=>a+b)/vs.length).toFixed(2)+'%' : '—';
+}
+
+// ════════════════════════════════════════════════════
+// 검색 — 학교+학과 단위로 병합
+// ════════════════════════════════════════════════════
+function doSearch() {
+  if (!rawData.length) return;
+
+  const naesin = n(document.getElementById('naesin').value);
+  const suScores = {
+    kor: n(document.getElementById('su_kor').value),
+    mat: n(document.getElementById('su_mat').value),
+    eng: null,   // 영어는 절대평가 — 백분위 미사용
+    ex1: n(document.getElementById('su_ex1').value),
+    ex2: n(document.getElementById('su_ex2').value),
+  };
+  // 0~100 범위 외 값 제거
+  Object.keys(suScores).forEach(k=>{ if(suScores[k]!==null&&(suScores[k]<0||suScores[k]>100)) suScores[k]=null; });
+  const hasSu = Object.values(suScores).some(v=>v!==null);
+  if (!naesin && !hasSu) { showToast('내신 등급 또는 수능 백분위를 입력하세요'); return; }
+
+  const kw = document.getElementById('kw').value.trim();
+
+  // ── 자유/자율전공 폴백 맵 사전 구축 ──
+  // univFreeMap[대학명] = [{ dept, series, suCut, area }]
+  // 정시 데이터가 없는 학과에 대해 같은 대학의 자유/자율전공 백분위를 폴백으로 사용
+  const FREE_RE = /자유전공|자율전공|자유학부|자율학부|자유학과|자율학과/;
+  const univFreeMap = new Map();
+  for (const row of rawData) {
+    const dept = (row[C.dept26]||'').trim();
+    if (!FREE_RE.test(dept)) continue;
+    const suCut = n(row[C.su_pct]);
+    if (suCut === null) continue;
+    const univ   = (row[C.univ]||'').trim();
+    const series = (row[C.series]||'').trim();
+    const area   = (row[C.su_area]||'').trim();
+    if (!univFreeMap.has(univ)) univFreeMap.set(univ, []);
+    const enghis = (row[C.su_enghis]||'').trim();
+    univFreeMap.get(univ).push({ dept, series, suCut, area,
+      enghis: (enghis && enghis!=='-') ? enghis : null });
+  }
+
+  // 폴백 찾기: 계열 우선 → 공통 순, 같은 계열 내에서 백분위 가장 높은 것
+  function findFreeFallback(univ, series) {
+    const list = univFreeMap.get(univ);
+    if (!list || !list.length) return null;
+    // 1순위: 계열 일치
+    const exact = list.filter(f => f.series === series);
+    // 2순위: 공통
+    const common = list.filter(f => f.series === '공통');
+    const candidates = exact.length ? exact : common.length ? common : list;
+    // 가장 높은 백분위 선택
+    return candidates.reduce((a,b) => a.suCut > b.suCut ? a : b);
+  }
+
+  // key별 병합 Map
+  const map = new Map(); // key → school obj
+
+  for (const row of rawData) {
+    const kwon   = (row[C.kwon]||'').trim();
+    const dept   = (row[C.dept26]||'').trim();
+    const univ   = (row[C.univ]||'').trim();
+    const series = (row[C.series]||'').trim();
+    if (!dept||!univ) continue;
+
+    // 기본 필터
+    if (!fRegion.has('all')  && !fRegion.has(kwon))   continue;
+    if (!fSeries.has('all')  && !fSeries.has(series))  continue;
+    if (kw && !dept.includes(kw) && !univ.includes(kw)) continue;
+
+    const key = univ + '\u0000' + dept;
+    if (!map.has(key)) {
+      map.set(key, {
+        kwon, region:(row[C.region]||'').trim(), sub:(row[C.sub]||'').trim(),
+        univ, dept, series,
+        dept25: (row[C.dept25]||'').trim(),
+        chg_type:(row[C.chg_type]||'').trim(), chg_dept:(row[C.chg_dept]||'').trim(),
+        gyo:[], jong:[], su:null, _rows:[]
+      });
+    }
+    const s = map.get(key);
+    s._rows.push(row);
+
+    // ── 교과전형 ──
+    if (naesin) {
+      for (const [tk,k50,k70] of [
+        [C.g1t,C.g1_50,C.g1_70],[C.g2t,C.g2_50,C.g2_70],[C.g3t,C.g3_50,C.g3_70]
+      ]) {
+        const typeName = dash(row[tk]);
+        const cut70 = n(row[k70]);
+        const cut50 = n(row[k50]);
+        if (!typeName || cut70===null || cut70>9 || cut70<0.5) continue;
+        // 같은 전형명 중복 제거
+        if (s.gyo.some(g=>g.name===typeName)) continue;
+        const diff = naesin - cut70;
+        s.gyo.push({ name:typeName, cut70, cut50, diff, verdict:vGrade(diff) });
+      }
+    }
+
+    // ── 종합전형 ──
+    if (naesin) {
+      for (const [tk,k50,k70] of [
+        [C.j1t,C.j1_50,C.j1_70],[C.j2t,C.j2_50,C.j2_70]
+      ]) {
+        const typeName = dash(row[tk]);
+        const cut70 = n(row[k70]);
+        const cut50 = n(row[k50]);
+        if (!typeName || cut70===null || cut70>9 || cut70<0.5) continue;
+        if (s.jong.some(j=>j.name===typeName)) continue;
+        const diff = naesin - cut70;
+        s.jong.push({ name:typeName, cut70, cut50, diff, verdict:vGrade(diff) });
+      }
+    }
+
+    // ── 정시 ──
+    if (hasSu && s.su===null) {
+      const suCut = n(row[C.su_pct]);
+      const area  = (row[C.su_area]||'').trim();
+      if (suCut!==null) {
+        const myPct = calcSuPct(area, suScores);
+        if (myPct!==null) {
+          const diff = myPct - suCut;
+          const enghis = (row[C.su_enghis]||'').trim();
+          s.su = { cut:suCut, myPct, diff, verdict:vPct(diff), area, usedArea:area,
+                   enghis: (enghis && enghis!=='-') ? enghis : null };
+        }
+      }
+    }
+  }
+
+  // ── 정시 폴백: su가 없으면 같은 대학의 자유/자율전공 백분위 사용 ──
+  if (hasSu) {
+    for (const s of map.values()) {
+      if (s.su !== null) continue;
+      if (FREE_RE.test(s.dept)) continue;
+      const fb = findFreeFallback(s.univ, s.series);
+      if (!fb) continue;
+      const myPct = calcSuPct(fb.area, suScores);
+      if (myPct===null) continue;
+      const diff = myPct - fb.suCut;
+      s.su = {
+        cut: fb.suCut,
+        myPct,
+        diff,
+        verdict: vPct(diff),
+        area: fb.area,
+        usedArea: fb.area,
+        isFallback: true,
+        fallbackDept: fb.dept,
+        fallbackSeries: fb.series,
+        enghis: fb.enghis||null,
+      };
+    }
+  }
+
+  // 필터 후 배열로 변환
+  schools = [];
+  for (const s of map.values()) {
+    if (!s.gyo.length && !s.jong.length && !s.su) continue;
+
+    // 최고 판정 계산 (가능 > 경계 > 위험 순)
+    const allVerdicts = [
+      ...s.gyo.map(g=>g.verdict),
+      ...s.jong.map(j=>j.verdict),
+      ...(s.su?[s.su.verdict]:[])
+    ];
+    const bestVerdict = allVerdicts.includes('가능')?'가능'
+                      : allVerdicts.includes('경계')?'경계'
+                      : allVerdicts.length?'위험':null;
+
+    // 판정 범위 필터
+    if (!fVerdict.has('all')) {
+      const order = verdictOrder(bestVerdict);
+      if (fVerdict.has('가능') && order > 1) continue;   // 안정+가능만
+      if (fVerdict.has('경계') && order > 2) continue;   // 안정+가능+경계
+    }
+
+    s.bestVerdict = bestVerdict;
+    // 정렬용 차이값 (각 전형 중 가장 유리한 값)
+    s.bestGyo  = s.gyo.length  ? Math.min(...s.gyo.map(g=>g.diff))  : null;
+    s.bestJong = s.jong.length ? Math.min(...s.jong.map(j=>j.diff)) : null;
+    s.bestSu   = s.su          ? s.su.diff : null;
+    schools.push(s);
+  }
+
+  filtered = schools;
+  render();
+}
+
+
+// ════════════════════════════════════════════════════
+// 반영영역별 수능 백분위 계산
+// ════════════════════════════════════════════════════
+function calcSuPct(area, sc) {
+  // sc: {kor, mat, eng, ex1, ex2} — null이면 미입력
+  const a = (area||'').replace(/\s/g,'');
+
+  // 반영영역 없으면 입력 전체 평균으로 폴백
+  const allVals = [sc.kor, sc.mat, sc.eng, sc.ex1, sc.ex2].filter(v=>v!==null);
+  const fallback = allVals.length ? allVals.reduce((x,y)=>x+y)/allVals.length : null;
+  if (!a || a==='-') return fallback;
+
+  let pool = [];
+  if (a.includes('국') && sc.kor!==null) pool.push(sc.kor);
+  if (a.includes('수') && sc.mat!==null) pool.push(sc.mat);
+  if (a.includes('영') && sc.eng!==null) pool.push(sc.eng);
+
+  if (a.includes('탐')) {
+    const t2 = /탐[^(]*\(2\)/.test(a);
+    if (t2) {
+      // 탐구 2과목 모두 포함
+      if (sc.ex1!==null) pool.push(sc.ex1);
+      if (sc.ex2!==null) pool.push(sc.ex2);
+    } else {
+      // 탐구 1과목 — 높은 것 선택
+      const best = Math.max(sc.ex1??-Infinity, sc.ex2??-Infinity);
+      if (isFinite(best)) pool.push(best);
+    }
+  }
+
+  if (!pool.length) return fallback;
+
+  // "중 N개" → pool에서 상위 N개만 선택
+  const mid = a.match(/중(\d)개/);
+  if (mid) {
+    const n = parseInt(mid[1]);
+    pool = [...pool].sort((x,y)=>y-x).slice(0,n);
+  }
+
+  return pool.length ? pool.reduce((x,y)=>x+y)/pool.length : fallback;
+}
+
+// ════════════════════════════════════════════════════
+// 판정
+// ════════════════════════════════════════════════════
+function vGrade(d) {
+  if (d <= THR.grade.stable) return '안정';
+  if (d <= THR.grade.safe)   return '가능';
+  if (d <= THR.grade.border) return '경계';
+  if (d <= THR.grade.warn)   return '위험';
+  return '그러지마';
+}
+function vPct(d) {
+  if (d >= THR.pct.stable) return '안정';
+  if (d >= THR.pct.safe)   return '가능';
+  if (d >= THR.pct.border) return '경계';
+  if (d >= THR.pct.warn)   return '위험';
+  return '그러지마';
+}
+function verdictOrder(v){ return v==='안정'?0:v==='가능'?1:v==='경계'?2:v==='위험'?3:v==='그러지마'?4:5; }
+
+// diff → "여유 X.XX단위" / "부족 X.XX단위"
+// isGrade=true: diff 음수=유리(여유) / isGrade=false(정시): diff 양수=유리(여유)
+function fmtMargin(diff, isGrade, unit) {
+  const favorable = isGrade ? diff <= 0 : diff >= 0;
+  const abs = Math.abs(diff).toFixed(2);
+  return (favorable ? '여유 ' : '부족 ') + abs + unit;
+}
+
+// ════════════════════════════════════════════════════
+// 렌더
+// ════════════════════════════════════════════════════
+function render() {
+  const sort = document.getElementById('sortSel').value;
+  const data = [...filtered];
+
+  data.sort((a,b)=>{
+    if (sort==='best')  return verdictOrder(a.bestVerdict)-verdictOrder(b.bestVerdict) || (a.bestGyo??99)-(b.bestGyo??99);
+    if (sort==='gyo')   return (a.bestGyo??99)-(b.bestGyo??99);
+    if (sort==='jong')  return (a.bestJong??99)-(b.bestJong??99);
+    if (sort==='su')    return (b.bestSu??-99)-(a.bestSu??-99); // 정시는 클수록 유리
+    if (sort==='univ')  return a.univ.localeCompare(b.univ,'ko');
+    if (sort==='dept')  return a.dept.localeCompare(b.dept,'ko');
+    return 0;
+  });
+
+  document.getElementById('resCnt').innerHTML = `총 <strong>${data.length}</strong>개 학교·학과`;
+
+  if (!data.length) {
+    setBody(`<div class="empty"><div class="empty-icon">🔍</div><h3>조건에 맞는 결과가 없습니다</h3><p>필터 조건을 조정해보세요.</p></div>`);
+    return;
+  }
+
+  const bc={'안정':'b-stable','가능':'b-up','경계':'b-mid','위험':'b-dn','그러지마':'b-stop'};
+
+  const rows = data.map((s,i)=>{
+    // 전형 판정 셀 3개 (교과 대표 / 종합 대표 / 정시)
+    const gyoBest  = s.gyo.length  ? s.gyo.reduce((a,b)=>a.diff<b.diff?a:b)  : null;
+    const jongBest = s.jong.length ? s.jong.reduce((a,b)=>a.diff<b.diff?a:b) : null;
+    const suData   = s.su;
+
+    const cell = (label, data, isGrade) => {
+      if (!data) return `<div class="vc vc-none"><div class="vc-type">${label}</div><div class="vc-label">—</div><div class="vc-diff" style="color:var(--text-3);font-size:9px">데이터없음</div></div>`;
+      const cls = {'안정':'vc-stable','가능':'vc-up','경계':'vc-mid','위험':'vc-dn','그러지마':'vc-stop'}[data.verdict]||'vc-none';
+      const unit = isGrade ? '등급' : '%';
+      const fbTag = (!isGrade && data.isFallback)
+        ? `<div style="font-size:8px;opacity:.7;margin-top:1px">자율전공 기준</div>` : '';
+      return `<div class="vc ${cls}">
+        <div class="vc-type">${label}</div>
+        <div class="vc-label">${data.verdict}</div>
+        <div class="vc-diff">${fmtMargin(data.diff, isGrade, unit)}</div>
+        ${fbTag}
+      </div>`;
+    };
+
+    return `<tr class="school-row" onclick="showDetail(${i}, ${JSON.stringify(sort).replace(/"/g,'&quot;')})">
+      <td class="c" style="color:var(--text-3);font-family:var(--mono);font-size:10px">${i+1}</td>
+      <td class="c"><span class="badge ${bc[s.bestVerdict]||'b-none'}">${s.bestVerdict||'—'}</span></td>
+      <td style="font-size:10px;color:var(--text-3)">${s.kwon}</td>
+      <td style="font-weight:500">${s.univ}</td>
+      <td>${s.dept}${s.chg_dept&&s.chg_dept!=='유지'?`<span style="font-size:9px;color:var(--mid);margin-left:4px">변경</span>`:''}</td>
+      <td style="font-size:10px;color:var(--text-3)">${s.series}</td>
+      <td>
+        <div class="verdict-cells">
+          ${cell('교과', gyoBest,  true)}
+          ${cell('종합', jongBest, true)}
+          ${cell('정시', suData,   false)}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('resultBody').innerHTML = `
+    <table>
+      <thead><tr>
+        <th class="c" style="width:28px">#</th>
+        <th class="c" style="width:46px">최고판정</th>
+        <th>권역</th>
+        <th>대학</th>
+        <th>모집단위 (2026)</th>
+        <th>계열</th>
+        <th>교과 · 종합 · 정시 전형별 판정</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // 정렬 후 인덱스 저장 (상세 팝업용)
+  render._sorted = data;
+}
+render._sorted = [];
+
+// ════════════════════════════════════════════════════
+// 상세 팝업
+// ════════════════════════════════════════════════════
+function showDetail(i) {
+  const s = render._sorted[i];
+  if (!s) return;
+
+  document.getElementById('mTitle').textContent = `${s.univ} · ${s.dept}`;
+  document.getElementById('mSub').textContent   = `${s.series} · ${s.kwon} ${s.region} ${s.sub}`;
+
+  const dcls={'안정':'dc-stable','가능':'dc-up','경계':'dc-mid','위험':'dc-dn','그러지마':'dc-stop'};
+  const naesin = n(document.getElementById('naesin').value);
+
+  // 카드 생성 함수
+  const card = (label, items, isSu) => {
+    if (!items || (Array.isArray(items) && !items.length)) {
+      return `<div class="dcard dc-none">
+        <div class="dcard-type">${label}</div>
+        <div class="dcard-verdict" style="color:var(--text-3)">데이터 없음</div>
+      </div>`;
+    }
+    if (isSu) {
+      const s2=items;
+      const fbNote = s2.isFallback
+        ? `<div style="margin-top:6px;padding:4px 8px;background:rgba(0,0,0,.06);border-radius:5px;font-size:10px;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ※ 정시 데이터 없음 · <strong>${s2.fallbackDept}</strong> 기준
+           </div>` : '';
+      return `<div class="dcard ${dcls[s2.verdict]||'dc-none'}">
+        <div class="dcard-type">정시 (수능)${s2.isFallback?` · <span style="font-size:9px;opacity:.8">${s2.fallbackSeries} 자율전공 기준</span>`:''}</div>
+        <div class="dcard-verdict">${s2.verdict}</div>
+        <div class="dcard-line">합격선 <span>${s2.cut.toFixed(2)}%</span></div>
+        <div class="dcard-line">내 점수 <span>${s2.myPct.toFixed(2)}%</span></div>
+        <div class="dcard-diff">${fmtMargin(s2.diff, false, '%')}</div>
+        ${s2.usedArea?`<div class="typename" style="margin-top:4px">반영: ${s2.usedArea}</div>`:''}
+        ${s2.enghis?`<div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.06);border-radius:6px;">
+          <div style="font-size:10px;opacity:.6;margin-bottom:6px;white-space:nowrap">영어/한국사 (70% 합격 기준)</div>
+          <div style="display:flex;gap:8px;">
+            ${(v=>{
+              const parts = v.split('/');
+              const labels = ['영어', '한국사'];
+              return parts.map((p,i)=>p==='-'?'':`<div style="flex:1;background:rgba(255,255,255,.5);border-radius:5px;padding:6px 8px;text-align:center;">
+                <div style="font-size:10px;opacity:.65;margin-bottom:3px">${labels[i]}</div>
+                <div style="font-size:15px;font-weight:700;font-family:var(--mono)">${p}등급</div>
+              </div>`).filter(Boolean).join('')
+            })(s2.enghis)}
+          </div>
+        </div>`:''}
+        ${fbNote}
+      </div>`;
+    }
+    // 교과/종합: 여러 전형 펼치기
+    const best = items.reduce((a,b)=>a.diff<b.diff?a:b);
+    const others = items.filter(x=>x!==best);
+    return `<div class="dcard ${dcls[best.verdict]||'dc-none'}">
+      <div class="dcard-type">${label}</div>
+      <div class="dcard-verdict">${best.verdict}</div>
+      <div class="typename">${best.name}</div>
+      <div class="dcard-line">합격선 70% <span>${best.cut70.toFixed(2)}등급</span></div>
+      ${best.cut50!==null?`<div class="dcard-line">합격선 50% <span>${best.cut50.toFixed(2)}등급</span></div>`:''}
+      ${naesin!==null?`<div class="dcard-line">내 내신 <span>${naesin.toFixed(2)}등급</span></div>`:''}
+      <div class="dcard-diff">${fmtMargin(best.diff, true, '등급')}</div>
+      ${others.map(o=>`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08)">
+        <div class="typename">${o.name}</div>
+        <div class="dcard-line">합격선 70% <span>${o.cut70.toFixed(2)}등급</span></div>
+        <div style="font-size:10px;font-family:var(--mono);font-weight:700;color:inherit">${fmtMargin(o.diff, true, '등급')}</div>
+      </div>`).join('')}
+    </div>`;
+  };
+
+  const cards = `
+    <div class="detail-cards">
+      ${card('교과전형', s.gyo,  false)}
+      ${card('종합전형', s.jong, false)}
+      ${card('정시전형', s.su,   true)}
+    </div>`;
+
+  document.getElementById('mBody').innerHTML = `
+    <div class="m-sec">
+      <h4>전형별 판정</h4>
+      ${cards}
+    </div>
+    <div class="m-sec">
+      <h4>2025 → 2026 변경사항</h4>
+      <div class="m-row"><span class="m-k">2025 모집단위</span><span class="m-v">${s.dept25||'-'}</span></div>
+      <div class="m-row"><span class="m-k">2026 모집단위</span><span class="m-v">${s.dept}</span></div>
+      <div class="m-row"><span class="m-k">전형 변경</span><span class="m-v">${(s.chg_type||'-').replace('유지','변경없음')}</span></div>
+      <div class="m-row"><span class="m-k">모집단위 변경</span><span class="m-v">${(s.chg_dept||'-').replace('유지','변경없음')}</span></div>
+    </div>`;
+
+  document.getElementById('modalBg').style.display='flex';
+}
+function closeModal(){ document.getElementById('modalBg').style.display='none'; }
+
+// ════════════════════════════════════════════════════
+// 필터 칩
+// ════════════════════════════════════════════════════
+function setupChips(id, set) {
+  document.getElementById(id).addEventListener('click', e=>{
+    const chip=e.target.closest('.chip'); if(!chip)return;
+    const v=chip.dataset.v;
+    if(v==='all'){set.clear();set.add('all');}
+    else{set.delete('all');if(set.has(v)){set.delete(v);if(!set.size)set.add('all');}else set.add(v);}
+    document.querySelectorAll(`#${id} .chip`).forEach(c=>c.classList.toggle('on',set.has(c.dataset.v)));
+  });
+}
+setupChips('fRegion', fRegion);
+setupChips('fSeries', fSeries);
+setupChips('fVerdict', fVerdict);
+
+// ════════════════════════════════════════════════════
+// 관리자
+// ════════════════════════════════════════════════════
+function toggleAdmin(){
+  const p=document.getElementById('adminPanel');
+  if(p.classList.contains('open')){closeAdmin();return;}
+  p.classList.add('open');
+  document.getElementById('adminLock').style.display='block';
+  document.getElementById('adminContent').style.display='none';
+  document.getElementById('adminPw').value='';
+  setTimeout(()=>document.getElementById('adminPw').focus(),80);
+}
+function closeAdmin(){document.getElementById('adminPanel').classList.remove('open');}
+function checkPw(){
+  const input=document.getElementById('adminPw').value;
+  const saved=localStorage.getItem(LS.pw)||ADMIN_PW_DEFAULT;
+  if(input===saved){
+    document.getElementById('adminLock').style.display='none';
+    document.getElementById('adminContent').style.display='block';
+  } else {
+    showToast('비밀번호가 틀렸습니다');
+    document.getElementById('adminPw').value='';
+    document.getElementById('adminPw').focus();
+  }
+}
+function changePw(){
+  const p1=document.getElementById('pw1').value, p2=document.getElementById('pw2').value;
+  if(!p1){showToast('새 비밀번호를 입력하세요');return;}
+  if(p1!==p2){showToast('비밀번호가 일치하지 않습니다');return;}
+  localStorage.setItem(LS.pw,p1);
+  document.getElementById('pw1').value='';document.getElementById('pw2').value='';
+  showToast('✓ 비밀번호 변경 완료');
+}
+function clearData(){
+  if(!confirm('저장된 데이터를 삭제하시겠습니까?'))return;
+  localStorage.removeItem(LS.csv); location.reload();
+}
+
+// ════════════════════════════════════════════════════
+// 유틸
+// ════════════════════════════════════════════════════
+function setStatus(s,m){
+  document.getElementById('statusDot').className='dot'+(s==='ok'?' ok':s==='err'?' err':s==='loading'?' loading':'');
+  document.getElementById('statusTxt').textContent=m;
+}
+function setBody(h){document.getElementById('resultBody').innerHTML=h;}
+let _tt;
+function showToast(m){
+  const t=document.getElementById('toast');
+  t.textContent=m;t.classList.add('show');
+  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
