@@ -300,6 +300,15 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       <button class="abtn abtn-n" onclick="changePw()">변경</button>
     </div>
     <hr class="a-div">
+    <h4>접속 허가 이메일 관리</h4>
+    <div class="a-row">
+      <span class="a-label">이메일 추가</span>
+      <input class="a-input" style="flex:1;min-width:200px" id="newEmailInput" type="email" placeholder="추가할 이메일 주소"/>
+      <input class="a-input" style="width:80px" id="newNameInput" type="text" placeholder="이름"/>
+      <button class="abtn abtn-g" onclick="addEmail()">추가</button>
+    </div>
+    <div id="emailList" style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid #2a2a2a;border-radius:6px;padding:4px;"></div>
+    <hr class="a-div">
     <div class="a-row">
       <span class="a-label">초기화</span>
       <button class="abtn abtn-r" onclick="clearData()">데이터 삭제 후 재시작</button>
@@ -1098,6 +1107,7 @@ function checkPw(){
   if(input===saved){
     document.getElementById('adminLock').style.display='none';
     document.getElementById('adminContent').style.display='block';
+    loadEmailList();
   } else {
     showToast('비밀번호가 틀렸습니다');
     document.getElementById('adminPw').value='';
@@ -1115,6 +1125,58 @@ function changePw(){
 function clearData(){
   if(!confirm('저장된 데이터를 삭제하시겠습니까?'))return;
   location.reload();
+}
+
+// ════════════════════════════════════════════════════
+// 이메일 관리
+// ════════════════════════════════════════════════════
+async function loadEmailList() {
+  const list = document.getElementById('emailList');
+  list.innerHTML = '<div style="color:#666;font-size:11px;padding:6px">불러오는 중...</div>';
+  try {
+    const snap = await db.collection('allowed_emails').get();
+    if (snap.empty) {
+      list.innerHTML = '<div style="color:#666;font-size:11px;padding:6px">등록된 이메일 없음</div>';
+      return;
+    }
+    list.innerHTML = snap.docs.map(doc => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #2a2a2a;">
+        <div>
+          <span style="font-family:var(--mono);font-size:11px;color:#eee">${doc.id}</span>
+          ${doc.data().name ? `<span style="font-size:10px;color:#888;margin-left:6px">${doc.data().name}</span>` : ''}
+        </div>
+        <button onclick="deleteEmail('${doc.id}')" style="background:#7f1d1d;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;">삭제</button>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="color:#f87171;font-size:11px;padding:6px">로드 실패: ${e.message}</div>`;
+  }
+}
+
+async function addEmail() {
+  const email = document.getElementById('newEmailInput').value.trim().toLowerCase();
+  const name  = document.getElementById('newNameInput').value.trim();
+  if (!email) { showToast('이메일을 입력하세요'); return; }
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { showToast('올바른 이메일 형식이 아닙니다'); return; }
+  try {
+    await db.collection('allowed_emails').doc(email).set({ name: name || '' });
+    document.getElementById('newEmailInput').value = '';
+    document.getElementById('newNameInput').value = '';
+    showToast(`✓ ${email} 추가 완료`);
+    loadEmailList();
+  } catch(e) {
+    showToast('추가 실패: ' + e.message);
+  }
+}
+
+async function deleteEmail(email) {
+  if (!confirm(`${email} 을 삭제하시겠습니까?`)) return;
+  try {
+    await db.collection('allowed_emails').doc(email).delete();
+    showToast(`✓ ${email} 삭제 완료`);
+    loadEmailList();
+  } catch(e) {
+    showToast('삭제 실패: ' + e.message);
+  }
 }
 
 // ════════════════════════════════════════════════════
