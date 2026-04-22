@@ -463,10 +463,16 @@ async function doLogin() {
   btn.disabled = true;
   btn.textContent = '확인 중...';
 
-  await loadAllowedEmails();
-
-  if (!allowedEmails.has(email)) {
-    err.textContent = '접근 권한이 없습니다. 관리자에게 문의하세요.';
+  // Firestore에서 직접 해당 이메일 문서 조회
+  try {
+    const doc = await db.collection('allowed_emails').doc(email).get();
+    if (!doc.exists) {
+      err.textContent = '접근 권한이 없습니다. 관리자에게 문의하세요.';
+      btn.disabled = false; btn.textContent = '접속하기';
+      return;
+    }
+  } catch(e) {
+    err.textContent = '서버 연결 실패: ' + e.message;
     btn.disabled = false; btn.textContent = '접속하기';
     return;
   }
