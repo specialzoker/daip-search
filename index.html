@@ -248,7 +248,6 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       onkeydown="if(event.key==='Enter')doLogin()"/>
     <button class="login-btn" id="loginBtn" onclick="doLogin()">접속하기</button>
     <div class="login-err" id="loginErr"></div>
-    <div class="login-spinner" id="loginSpinner"></div>
   </div>
 </div>
 
@@ -457,21 +456,18 @@ async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const btn   = document.getElementById('loginBtn');
   const err   = document.getElementById('loginErr');
-  const spin  = document.getElementById('loginSpinner');
   err.textContent = '';
   if (!email) { err.textContent = '이메일을 입력하세요.'; return; }
   if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { err.textContent = '올바른 이메일 형식이 아닙니다.'; return; }
 
   btn.disabled = true;
-  btn.textContent = '';
-  spin.style.display = 'block';
-  btn.appendChild(spin);
+  btn.textContent = '확인 중...';
 
   await loadAllowedEmails();
 
   if (!allowedEmails.has(email)) {
     err.textContent = '접근 권한이 없습니다. 관리자에게 문의하세요.';
-    btn.disabled = false; btn.textContent = '접속하기'; spin.style.display='none';
+    btn.disabled = false; btn.textContent = '접속하기';
     return;
   }
 
@@ -489,7 +485,7 @@ async function doLogin() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('logoutBtn').style.display   = 'inline-block';
   document.getElementById('logoutBtn').title = email;
-  btn.disabled = false; btn.textContent = '접속하기'; spin.style.display='none';
+  btn.disabled = false; btn.textContent = '접속하기';
 }
 
 function doLogout() {
