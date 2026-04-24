@@ -601,20 +601,25 @@ async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
   setBody(`<div class="spin-wrap"><div class="spinner"></div><span style="font-size:12px;color:var(--text-3)">데이터 불러오는 중...</span></div>`);
   try {
-    const [res, resMin] = await Promise.all([fetch(SHEET_CSV_URL), fetch(SHEET_MIN_URL)]);
+    const res = await fetch(SHEET_CSV_URL);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     rawData = parseCSV(text);
     if (!rawData.length) throw new Error('데이터 없음');
-    if (resMin.ok) {
-      minData = parseCSV(await resMin.text());
-      buildMinMap();
-    }
     finishLoad();
   } catch(e) {
     setStatus('err', '데이터 로드 실패');
     setBody(`<div class="empty"><div class="empty-icon">📭</div><h3>데이터 로드 실패</h3><p>잠시 후 다시 시도하거나 관리자에게 문의하세요.<br><small style="color:var(--text-3)">${e.message}</small></p></div>`);
+    return;
   }
+  // 최저기준 시트는 실패해도 메인 기능에 영향 없음
+  try {
+    const resMin = await fetch(SHEET_MIN_URL);
+    if (resMin.ok) {
+      minData = parseCSV(await resMin.text());
+      buildMinMap();
+    }
+  } catch(_) {}
 }
 
 function buildMinMap() {
