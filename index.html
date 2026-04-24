@@ -206,9 +206,13 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 .typename{font-size:10px;color:var(--text-3);margin-top:2px;}
 
 /* 종합전형 정보 블록 */
-.jong-info-block{margin-bottom:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
-.jong-info-block:last-child{margin-bottom:0;}
-.jong-info-title{font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:6px;}
+.jong-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;}
+.jong-info-block{padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+.jong-info-title{font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.jong-info-row{display:flex;flex-direction:column;padding:4px 0;border-bottom:1px solid var(--border);}
+.jong-info-row:last-child{border-bottom:none;}
+.jong-info-k{font-size:10px;color:var(--text-3);margin-bottom:2px;}
+.jong-info-v{font-size:11px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:keep-all;}
 
 /* 최저기준 셀 */
 .min-cell{vertical-align:middle;min-width:130px;max-width:200px;}
@@ -1148,19 +1152,19 @@ function showDetail(i) {
     </div>`;
 
   // 종합전형 정보 섹션
-  console.log('[종합] jongMap size:', jongMap.size, '/ 찾는 키:', s.jong.map(j=>`${s.univ}|${j.name}`));
-  const jongInfoHtml = s.jong.map(j => {
+  const jongInfoBlocks = s.jong.map(j => {
     const info = jongMap.get(`${s.univ}|${j.name}`);
-    console.log('[종합] 키:', `${s.univ}|${j.name}`, '→', info);
     if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent)) return '';
+    const row = (k, v) => v ? `<div class="jong-info-row"><div class="jong-info-k">${k}</div><div class="jong-info-v">${v}</div></div>` : '';
     return `<div class="jong-info-block">
       <div class="jong-info-title">${j.name}</div>
-      ${info.step1     ? `<div class="m-row"><span class="m-k">1단계 발표</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.step1}</span></div>` : ''}
-      ${info.interview ? `<div class="m-row"><span class="m-k">면접 일자</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.interview}</span></div>` : ''}
-      ${info.factors   ? `<div class="m-row"><span class="m-k">평가 요소</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.factors}</span></div>` : ''}
-      ${info.talent    ? `<div class="m-row"><span class="m-k">인재상</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.talent}</span></div>` : ''}
+      ${row('1단계 발표', info.step1)}
+      ${row('면접 일자',  info.interview)}
+      ${row('평가 요소',  info.factors)}
+      ${row('인재상',     info.talent)}
     </div>`;
-  }).filter(Boolean).join('');
+  }).filter(Boolean);
+  const jongInfoHtml = jongInfoBlocks.length ? `<div class="jong-info-grid">${jongInfoBlocks.join('')}</div>` : '';
 
   document.getElementById('mBody').innerHTML = `
     <div class="m-sec">
