@@ -649,13 +649,28 @@ function buildJongMap() {
     const univ = (row[univCol]||'').trim();
     const name = (row[typeNameCol]||'').trim();
     if (!univ || !name) continue;
-    jongMap.set(`${univ}|${name}`, {
+    const entry = {
+      univ,
       step1:     (row[step1Col]    ||'').trim(),
       interview: (row[interviewCol]||'').trim(),
       factors:   (row[factorsCol]  ||'').trim(),
       talent:    (row[talentCol]   ||'').trim(),
-    });
+    };
+    jongMap.set(`${univ}|${name}`, entry);
+    // 대학명 정규화 키도 저장 (학교 접미사 제거)
+    const univN = univ.replace(/학교$/,'').replace(/대학$/,'대');
+    if (univN !== univ) jongMap.set(`${univN}|${name}`, entry);
   }
+}
+function lookupJong(univ, typeName) {
+  const exact = jongMap.get(`${univ}|${typeName}`);
+  if (exact) return exact;
+  // 대학명 부분 일치 폴백
+  for (const [key, val] of jongMap) {
+    const [ku, kn] = key.split('|');
+    if (kn === typeName && (ku.includes(univ) || univ.includes(ku))) return val;
+  }
+  return null;
 }
 
 function buildMinMap() {
@@ -1153,7 +1168,7 @@ function showDetail(i) {
 
   // 종합전형 정보 섹션
   const jongInfoBlocks = s.jong.map(j => {
-    const info = jongMap.get(`${s.univ}|${j.name}`);
+    const info = lookupJong(s.univ, j.name);
     if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent)) return '';
     const row = (k, v) => v ? `<div class="jong-info-row"><div class="jong-info-k">${k}</div><div class="jong-info-v">${v}</div></div>` : '';
     return `<div class="jong-info-block">
