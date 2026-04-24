@@ -672,21 +672,24 @@ function buildJongMap() {
     if (univN !== univ) jongMap.set(`${univN}|${name}`, entry);
   }
 }
+function normUnivKey(n) { return n.replace(/학교.*$/,'').replace(/대학$/,'대').replace(/\s/g,''); }
 function normName(n) { return n.replace(/전형$|형$/,'').replace(/\s/g,''); }
 function lookupJong(univ, typeName) {
   const exact = jongMap.get(`${univ}|${typeName}`);
   if (exact) return exact;
+  const nu = normUnivKey(univ);
   const normType = normName(typeName);
-  const normUniv = univ.replace(/학교$/,'');
   let best = null;
   for (const [key, val] of jongMap) {
     const pipe = key.indexOf('|');
     const ku = key.slice(0, pipe);
     const kn = key.slice(pipe + 1);
-    const univOk = ku === univ || ku.includes(normUniv) || normUniv.includes(normName(ku).replace(/학교$/,'').replace(/대학$/,'대'));
+    const nku = normUnivKey(ku);
+    const univOk = nku === nu;  // 정규화 후 정확히 일치
+    if (!univOk) continue;
     const normKn = normName(kn);
     const nameOk = kn === typeName || normKn === normType || kn.includes(typeName) || typeName.includes(kn) || normKn.includes(normType) || normType.includes(normKn);
-    if (univOk && nameOk) { best = val; break; }
+    if (nameOk) { best = val; break; }
   }
   return best;
 }
@@ -1190,7 +1193,7 @@ function showDetail(i) {
   const _dbgUnivMatch = [...jongMap.keys()].filter(k=>k.includes(s.univ)||s.univ.includes(k.split('|')[0])).slice(0,3).join(' / ') || '시트에 해당 대학 없음';
   const jongInfoBlocks = s.jong.map(j => {
     const info = lookupJong(s.univ, j.name);
-    if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent)) return '';
+    if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent && !info.acad && !info.career && !info.community)) return '';
     const row = (k, v) => v ? `<div class="jong-info-row"><div class="jong-info-k">${k}</div><div class="jong-info-v">${v}</div></div>` : '';
     return `<div class="jong-info-block">
       <div class="jong-info-title">${j.name}</div>
