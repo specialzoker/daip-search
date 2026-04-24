@@ -672,13 +672,16 @@ function buildJongMap() {
     if (univN !== univ) jongMap.set(`${univN}|${name}`, entry);
   }
 }
+function normTypeName(n) { return n.replace(/형$/, '').replace(/\s/g, ''); }
 function lookupJong(univ, typeName) {
   const exact = jongMap.get(`${univ}|${typeName}`);
   if (exact) return exact;
-  // 대학명 부분 일치 폴백
+  const normType = normTypeName(typeName);
   for (const [key, val] of jongMap) {
     const [ku, kn] = key.split('|');
-    if (kn === typeName && (ku.includes(univ) || univ.includes(ku))) return val;
+    const univOk = ku === univ || ku.includes(univ) || univ.includes(ku);
+    const nameOk = kn === typeName || normTypeName(kn) === normType;
+    if (univOk && nameOk) return val;
   }
   return null;
 }
