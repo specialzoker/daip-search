@@ -630,11 +630,13 @@ async function loadCsvFromStorage() {
 
 function buildJongMap() {
   jongMap.clear();
-  if (!jongData.length) return;
+  if (!jongData.length) { console.log('[종합] jongData 비어있음'); return; }
   const headers = Object.keys(jongData[0]);
+  console.log('[종합] 헤더:', headers);
   const col = (...kws) => headers.find(h => kws.some(kw => h.includes(kw))) || '';
   const univCol      = col('대학명','대학');
   const typeNameCol  = col('전형명','진형명');
+  console.log('[종합] univCol:', univCol, 'typeNameCol:', typeNameCol);
   const step1Col     = col('1단계','단계발표','단계 발표');
   const interviewCol = col('면접');
   const factorsCol   = col('평가요소');
@@ -1146,8 +1148,10 @@ function showDetail(i) {
     </div>`;
 
   // 종합전형 정보 섹션
+  console.log('[종합] jongMap size:', jongMap.size, '/ 찾는 키:', s.jong.map(j=>`${s.univ}|${j.name}`));
   const jongInfoHtml = s.jong.map(j => {
     const info = jongMap.get(`${s.univ}|${j.name}`);
+    console.log('[종합] 키:', `${s.univ}|${j.name}`, '→', info);
     if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent)) return '';
     return `<div class="jong-info-block">
       <div class="jong-info-title">${j.name}</div>
