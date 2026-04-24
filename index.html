@@ -98,7 +98,7 @@ hr.dv{border:none;border-top:1px solid var(--border);margin:12px 0;}
 
 /* 테이블 */
 .table-wrap{overflow:auto;flex:1;border:1px solid var(--border);border-radius:8px;min-height:0;}
-table{width:100%;border-collapse:collapse;font-size:11px;min-width:860px;}
+table{width:100%;border-collapse:collapse;font-size:11px;min-width:1060px;}
 thead th{background:var(--text);color:#fff;padding:8px 10px;text-align:left;font-weight:500;font-size:10px;white-space:nowrap;border-right:1px solid #2a2a2a;position:sticky;top:0;z-index:2;}
 thead th:last-child{border-right:none;}
 thead th.c{text-align:center;}
@@ -204,6 +204,14 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 
 /* 전형명 서브텍스트 */
 .typename{font-size:10px;color:var(--text-3);margin-top:2px;}
+
+/* 최저기준 셀 */
+.min-cell{vertical-align:middle;min-width:130px;max-width:200px;}
+.mc-item{padding:3px 0;border-bottom:1px solid var(--border);}
+.mc-item:last-child{border-bottom:none;}
+.mc-type{display:inline-block;font-size:9px;font-weight:700;color:#fff;background:#64748b;border-radius:3px;padding:1px 5px;margin-right:4px;white-space:nowrap;}
+.mc-min{font-size:11px;font-weight:700;color:var(--text);font-family:var(--mono);}
+.mc-note{font-size:9px;color:var(--text-3);margin-top:1px;line-height:1.4;white-space:normal;}
 
 /* 토스트 */
 .toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;z-index:999;opacity:0;transform:translateY(6px);transition:all .25s;pointer-events:none;}
@@ -584,20 +592,56 @@ function handleFile(file) {
 
 // 구글 시트에서 CSV 자동 로드
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=0';
+const SHEET_MIN_URL  = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=18364993';
+
+let minData = [];
+let minMap  = new Map(); // key: `대학명|모집단위` → [{type,name,min,note,area}]
 
 async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
   setBody(`<div class="spin-wrap"><div class="spinner"></div><span style="font-size:12px;color:var(--text-3)">데이터 불러오는 중...</span></div>`);
   try {
-    const res = await fetch(SHEET_CSV_URL);
+    const [res, resMin] = await Promise.all([fetch(SHEET_CSV_URL), fetch(SHEET_MIN_URL)]);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     rawData = parseCSV(text);
     if (!rawData.length) throw new Error('데이터 없음');
+    if (resMin.ok) {
+      minData = parseCSV(await resMin.text());
+      buildMinMap();
+    }
     finishLoad();
   } catch(e) {
     setStatus('err', '데이터 로드 실패');
     setBody(`<div class="empty"><div class="empty-icon">📭</div><h3>데이터 로드 실패</h3><p>잠시 후 다시 시도하거나 관리자에게 문의하세요.<br><small style="color:var(--text-3)">${e.message}</small></p></div>`);
+  }
+}
+
+function buildMinMap() {
+  minMap.clear();
+  if (!minData.length) return;
+  const headers = Object.keys(minData[0]);
+  const col = (...kws) => headers.find(h => kws.some(kw => h.includes(kw))) || '';
+  const univCol = col('대학명');
+  const typeCol = col('전형유형','진형유형');
+  const nameCol = col('전형명','진형명');
+  const deptCol = col('모집단위');
+  const minCol  = col('최저학력기준','최저기준','최저');
+  const noteCol = col('비고');
+  const areaCol = col('반영영역');
+  for (const row of minData) {
+    const univ = (row[univCol]||'').trim();
+    const dept = (row[deptCol]||'').trim();
+    if (!univ || !dept) continue;
+    const key = `${univ}|${dept}`;
+    if (!minMap.has(key)) minMap.set(key, []);
+    minMap.get(key).push({
+      type: (row[typeCol]||'').trim(),
+      name: (row[nameCol]||'').trim(),
+      min:  (row[minCol] ||'').trim(),
+      note: (row[noteCol]||'').trim(),
+      area: (row[areaCol]||'').trim(),
+    });
   }
 }
 
@@ -945,6 +989,11 @@ function render() {
       </div>`;
     };
 
+    const minItems = minMap.get(`${s.univ}|${s.dept}`) || [];
+    const minCellHtml = minItems.length
+      ? minItems.filter(m=>m.min).map(m=>`<div class="mc-item"><span class="mc-type">${m.type||m.name}</span><span class="mc-min">${m.min}</span>${m.note?`<div class="mc-note">${m.note}</div>`:''}</div>`).join('')
+      : `<span style="color:var(--text-3);font-size:10px">—</span>`;
+
     return `<tr class="school-row" onclick="showDetail(${i}, ${JSON.stringify(sort).replace(/"/g,'&quot;')})">
       <td class="c" style="color:var(--text-3);font-family:var(--mono);font-size:10px">${i+1}</td>
       <td class="c"><span class="badge ${bc[s.bestVerdict]||'b-none'}">${s.bestVerdict||'—'}</span></td>
@@ -961,6 +1010,7 @@ function render() {
           ${cell('정시', suData,   false)}
         </div>
       </td>
+      <td class="min-cell">${minCellHtml}</td>
     </tr>`;
   }).join('');
 
@@ -974,6 +1024,7 @@ function render() {
         <th>모집단위 (2026)</th>
         <th>계열</th>
         <th>교과 · 종합 · 정시 전형별 판정</th>
+        <th>최저기준</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
