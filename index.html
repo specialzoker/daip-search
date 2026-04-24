@@ -1187,6 +1187,7 @@ function showDetail(i) {
   // 종합전형 정보 섹션
   const _dbgSample = [...jongMap.keys()].slice(0,2).join(' / ') || '(없음)';
   const _dbgKeys = s.jong.map(j=>`${s.univ}|${j.name}`).join(', ');
+  const _dbgUnivMatch = [...jongMap.keys()].filter(k=>k.includes(s.univ)||s.univ.includes(k.split('|')[0])).slice(0,3).join(' / ') || '시트에 해당 대학 없음';
   const jongInfoBlocks = s.jong.map(j => {
     const info = lookupJong(s.univ, j.name);
     if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent)) return '';
@@ -1210,7 +1211,7 @@ function showDetail(i) {
       <h4>전형별 판정</h4>
       ${cards}
     </div>
-    ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : `<div style="font-size:10px;color:red;padding:8px;background:#fff0f0;border-radius:6px;margin-bottom:8px">🔍 디버그: jongMap크기=${jongMap.size} / 찾는키: ${_dbgKeys} / 시트샘플: ${_dbgSample}</div>`}
+    ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : `<div style="font-size:10px;color:red;padding:8px;background:#fff0f0;border-radius:6px;margin-bottom:8px">🔍 디버그: jongMap크기=${jongMap.size} / 찾는키: ${_dbgKeys} / 대학매칭: ${_dbgUnivMatch}</div>`}
     <div class="m-sec">
       <h4>2025 → 2026 변경사항</h4>
       <div class="m-row"><span class="m-k">2025 모집단위</span><span class="m-v">${s.dept25||'-'}</span></div>
