@@ -633,7 +633,7 @@ function buildJongMap() {
   if (!jongData.length) return;
   const headers = Object.keys(jongData[0]);
   const col = (...kws) => headers.find(h => kws.some(kw => h.includes(kw))) || '';
-  const univCol      = col('대학명');
+  const univCol      = col('대학명','대학');
   const typeNameCol  = col('전형명','진형명');
   const step1Col     = col('1단계','단계발표','단계 발표');
   const interviewCol = col('면접');
