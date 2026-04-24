@@ -672,18 +672,23 @@ function buildJongMap() {
     if (univN !== univ) jongMap.set(`${univN}|${name}`, entry);
   }
 }
-function normTypeName(n) { return n.replace(/형$/, '').replace(/\s/g, ''); }
+function normName(n) { return n.replace(/전형$|형$/,'').replace(/\s/g,''); }
 function lookupJong(univ, typeName) {
   const exact = jongMap.get(`${univ}|${typeName}`);
   if (exact) return exact;
-  const normType = normTypeName(typeName);
+  const normType = normName(typeName);
+  const normUniv = univ.replace(/학교$/,'');
+  let best = null;
   for (const [key, val] of jongMap) {
-    const [ku, kn] = key.split('|');
-    const univOk = ku === univ || ku.includes(univ) || univ.includes(ku);
-    const nameOk = kn === typeName || normTypeName(kn) === normType;
-    if (univOk && nameOk) return val;
+    const pipe = key.indexOf('|');
+    const ku = key.slice(0, pipe);
+    const kn = key.slice(pipe + 1);
+    const univOk = ku === univ || ku.includes(normUniv) || normUniv.includes(normName(ku).replace(/학교$/,'').replace(/대학$/,'대'));
+    const normKn = normName(kn);
+    const nameOk = kn === typeName || normKn === normType || kn.includes(typeName) || typeName.includes(kn) || normKn.includes(normType) || normType.includes(normKn);
+    if (univOk && nameOk) { best = val; break; }
   }
-  return null;
+  return best;
 }
 
 function buildMinMap() {
