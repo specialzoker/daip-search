@@ -213,6 +213,10 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 .jong-info-row:last-child{border-bottom:none;}
 .jong-info-k{font-size:10px;color:var(--text-3);margin-bottom:2px;}
 .jong-info-v{font-size:11px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:keep-all;}
+.jong-eval-bars{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
+.jong-eval-item{flex:1;min-width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;text-align:center;}
+.jong-eval-label{display:block;font-size:9px;color:var(--text-3);margin-bottom:2px;}
+.jong-eval-val{font-size:14px;font-weight:700;font-family:var(--mono);color:#1d4ed8;}
 
 /* 최저기준 셀 */
 .min-cell{vertical-align:middle;min-width:130px;max-width:200px;}
@@ -645,6 +649,9 @@ function buildJongMap() {
   const interviewCol = col('면접');
   const factorsCol   = col('평가요소');
   const talentCol    = col('인재상');
+  const acadCol      = col('학업역량');
+  const careerCol    = col('진로역량');
+  const communityCol = col('공동체역량');
   for (const row of jongData) {
     const univ = (row[univCol]||'').trim();
     const name = (row[typeNameCol]||'').trim();
@@ -655,6 +662,9 @@ function buildJongMap() {
       interview: (row[interviewCol]||'').trim(),
       factors:   (row[factorsCol]  ||'').trim(),
       talent:    (row[talentCol]   ||'').trim(),
+      acad:      (row[acadCol]     ||'').trim(),
+      career:    (row[careerCol]   ||'').trim(),
+      community: (row[communityCol]||'').trim(),
     };
     jongMap.set(`${univ}|${name}`, entry);
     // 대학명 정규화 키도 저장 (학교 접미사 제거)
@@ -1175,7 +1185,11 @@ function showDetail(i) {
       <div class="jong-info-title">${j.name}</div>
       ${row('1단계 발표', info.step1)}
       ${row('면접 일자',  info.interview)}
-      ${row('평가 요소',  info.factors)}
+      ${(info.acad||info.career||info.community) ? `<div class="jong-info-row"><div class="jong-info-k">평가 요소</div><div class="jong-eval-bars">
+        ${info.acad      ? `<div class="jong-eval-item"><span class="jong-eval-label">학업역량</span><span class="jong-eval-val">${info.acad}%</span></div>` : ''}
+        ${info.career    ? `<div class="jong-eval-item"><span class="jong-eval-label">진로역량</span><span class="jong-eval-val">${info.career}%</span></div>` : ''}
+        ${info.community ? `<div class="jong-eval-item"><span class="jong-eval-label">공동체역량</span><span class="jong-eval-val">${info.community}%</span></div>` : ''}
+      </div></div>` : row('평가 요소', info.factors)}
       ${row('인재상',     info.talent)}
     </div>`;
   }).filter(Boolean);
