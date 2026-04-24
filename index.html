@@ -205,6 +205,11 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 /* 전형명 서브텍스트 */
 .typename{font-size:10px;color:var(--text-3);margin-top:2px;}
 
+/* 종합전형 정보 블록 */
+.jong-info-block{margin-bottom:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+.jong-info-block:last-child{margin-bottom:0;}
+.jong-info-title{font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:6px;}
+
 /* 최저기준 셀 */
 .min-cell{vertical-align:middle;min-width:130px;max-width:200px;}
 .mc-item{padding:3px 0;border-bottom:1px solid var(--border);}
@@ -593,9 +598,12 @@ function handleFile(file) {
 // 구글 시트에서 CSV 자동 로드
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=0';
 const SHEET_MIN_URL  = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=18364993';
+const SHEET_JONG_URL = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=1511385939';
 
-let minData = [];
-let minMap  = new Map(); // key: `대학명|모집단위` → [{type,name,min,note,area}]
+let minData  = [];
+let minMap   = new Map(); // key: `대학명|모집단위` → [{type,name,min,note,area}]
+let jongData = [];
+let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 
 async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
@@ -612,14 +620,36 @@ async function loadCsvFromStorage() {
     setBody(`<div class="empty"><div class="empty-icon">📭</div><h3>데이터 로드 실패</h3><p>잠시 후 다시 시도하거나 관리자에게 문의하세요.<br><small style="color:var(--text-3)">${e.message}</small></p></div>`);
     return;
   }
-  // 최저기준 시트는 실패해도 메인 기능에 영향 없음
+  // 최저기준·종합전형 시트는 실패해도 메인 기능에 영향 없음
   try {
-    const resMin = await fetch(SHEET_MIN_URL);
-    if (resMin.ok) {
-      minData = parseCSV(await resMin.text());
-      buildMinMap();
-    }
+    const [resMin, resJong] = await Promise.allSettled([fetch(SHEET_MIN_URL), fetch(SHEET_JONG_URL)]);
+    if (resMin.status==='fulfilled' && resMin.value.ok) { minData = parseCSV(await resMin.value.text()); buildMinMap(); }
+    if (resJong.status==='fulfilled' && resJong.value.ok) { jongData = parseCSV(await resJong.value.text()); buildJongMap(); }
   } catch(_) {}
+}
+
+function buildJongMap() {
+  jongMap.clear();
+  if (!jongData.length) return;
+  const headers = Object.keys(jongData[0]);
+  const col = (...kws) => headers.find(h => kws.some(kw => h.includes(kw))) || '';
+  const univCol      = col('대학명');
+  const typeNameCol  = col('전형명','진형명');
+  const step1Col     = col('1단계','단계발표','단계 발표');
+  const interviewCol = col('면접');
+  const factorsCol   = col('평가요소');
+  const talentCol    = col('인재상');
+  for (const row of jongData) {
+    const univ = (row[univCol]||'').trim();
+    const name = (row[typeNameCol]||'').trim();
+    if (!univ || !name) continue;
+    jongMap.set(`${univ}|${name}`, {
+      step1:     (row[step1Col]    ||'').trim(),
+      interview: (row[interviewCol]||'').trim(),
+      factors:   (row[factorsCol]  ||'').trim(),
+      talent:    (row[talentCol]   ||'').trim(),
+    });
+  }
 }
 
 function buildMinMap() {
@@ -1115,11 +1145,25 @@ function showDetail(i) {
       ${card('정시전형', s.su,   true)}
     </div>`;
 
+  // 종합전형 정보 섹션
+  const jongInfoHtml = s.jong.map(j => {
+    const info = jongMap.get(`${s.univ}|${j.name}`);
+    if (!info || (!info.step1 && !info.interview && !info.factors && !info.talent)) return '';
+    return `<div class="jong-info-block">
+      <div class="jong-info-title">${j.name}</div>
+      ${info.step1     ? `<div class="m-row"><span class="m-k">1단계 발표</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.step1}</span></div>` : ''}
+      ${info.interview ? `<div class="m-row"><span class="m-k">면접 일자</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.interview}</span></div>` : ''}
+      ${info.factors   ? `<div class="m-row"><span class="m-k">평가 요소</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.factors}</span></div>` : ''}
+      ${info.talent    ? `<div class="m-row"><span class="m-k">인재상</span><span class="m-v" style="text-align:right;max-width:60%;white-space:normal">${info.talent}</span></div>` : ''}
+    </div>`;
+  }).filter(Boolean).join('');
+
   document.getElementById('mBody').innerHTML = `
     <div class="m-sec">
       <h4>전형별 판정</h4>
       ${cards}
     </div>
+    ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : ''}
     <div class="m-sec">
       <h4>2025 → 2026 변경사항</h4>
       <div class="m-row"><span class="m-k">2025 모집단위</span><span class="m-v">${s.dept25||'-'}</span></div>
