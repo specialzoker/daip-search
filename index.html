@@ -205,6 +205,35 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 /* 전형명 서브텍스트 */
 .typename{font-size:10px;color:var(--text-3);margin-top:2px;}
 
+/* 합격 사례 카드 */
+.cs-card{margin-bottom:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
+.cs-card:last-child{margin-bottom:0;}
+.cs-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;}
+.cs-title::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;}
+.cs-stat-row{display:flex;gap:8px;margin-bottom:10px;}
+.cs-stat{flex:1;background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center;}
+.cs-k{font-size:9px;color:var(--text-3);margin-bottom:2px;}
+.cs-v{font-size:14px;font-weight:700;font-family:var(--mono);}
+.cs-grade-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;}
+.cs-bar-wrap{flex:1;}
+.cs-bar-label{font-size:10px;color:var(--text-3);margin-bottom:4px;}
+.cs-bar{position:relative;height:18px;background:#f3f1eb;border-radius:9px;overflow:hidden;}
+.cs-bar-q1,.cs-bar-q2,.cs-bar-q3{position:absolute;top:0;bottom:0;}
+.cs-bar-q1{background:#dbeafe;}
+.cs-bar-q2{background:#1d4ed8;}
+.cs-bar-q3{background:#dbeafe;}
+.cs-bar-median{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;}
+.cs-bar-me{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--dn);border-radius:1px;box-shadow:0 0 0 1px #fff;}
+.cs-bar-ticks{display:flex;justify-content:space-between;font-size:8px;color:var(--text-3);font-family:var(--mono);margin-top:2px;padding:0 1px;}
+.cs-medstat{width:90px;display:flex;flex-direction:column;gap:3px;font-size:10px;}
+.cs-medstat>div{display:flex;justify-content:space-between;align-items:center;gap:4px;}
+.cs-medstat b{font-family:var(--mono);font-size:11px;color:var(--text);}
+.cs-mypos{margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11px;text-align:center;}
+.cs-mypos.cs-good{background:var(--up-bg);color:var(--up);}
+.cs-mypos.cs-mid{background:var(--mid-bg);color:var(--mid);}
+.cs-mypos.cs-bad{background:var(--dn-bg);color:var(--dn);}
+.cs-mypos b{font-weight:700;}
+
 /* 종합전형 정보 블록 */
 .jong-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;}
 .jong-info-block{padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
@@ -612,6 +641,7 @@ let minData  = [];
 let minMap   = new Map(); // key: `대학명|모집단위` → [{type,name,min,note,area}]
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
+let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
 
 async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
@@ -630,10 +660,44 @@ async function loadCsvFromStorage() {
   }
   // 최저기준·종합전형 시트는 실패해도 메인 기능에 영향 없음
   try {
-    const [resMin, resJong] = await Promise.allSettled([fetch(SHEET_MIN_URL), fetch(SHEET_JONG_URL)]);
+    const [resMin, resJong, resCases] = await Promise.allSettled([
+      fetch(SHEET_MIN_URL), fetch(SHEET_JONG_URL), fetch('cases.json')
+    ]);
     if (resMin.status==='fulfilled' && resMin.value.ok) { minData = parseCSV(await resMin.value.text()); buildMinMap(); }
     if (resJong.status==='fulfilled' && resJong.value.ok) { jongData = parseCSV(await resJong.value.text()); buildJongMap(); }
+    if (resCases.status==='fulfilled' && resCases.value.ok) { casesData = await resCases.value.json(); }
   } catch(_) {}
+}
+
+// 합격 사례 조회 — 대학명에 (분교/계열) 접미사가 있을 수 있어 부분 일치 매칭
+function lookupCases(univ, dept) {
+  if (!casesData) return null;
+  const exact = casesData[`${univ}|${dept}`];
+  if (exact) return exact;
+  // 같은 학과명을 가진 분교/계열 키들을 모두 모아서 합산
+  const merged = {};
+  for (const k in casesData) {
+    const pipe = k.indexOf('|');
+    const ku = k.slice(0, pipe), kd = k.slice(pipe + 1);
+    if (kd !== dept) continue;
+    // 대학명 base 매칭: 괄호 이전 부분이 일치
+    const baseKu = ku.replace(/\(.*$/, '').trim();
+    if (baseKu === univ || ku === univ) {
+      for (const cat in casesData[k]) {
+        if (!merged[cat]) { merged[cat] = {...casesData[k][cat]}; continue; }
+        const m = merged[cat], c = casesData[k][cat];
+        m['지원'] = (m['지원']||0) + (c['지원']||0);
+        m['합격'] = (m['합격']||0) + (c['합격']||0);
+        m['추합'] = (m['추합']||0) + (c['추합']||0);
+        if (m['지원']) m['합격률'] = +(m['합격']/m['지원']*100).toFixed(1);
+        // 평균은 가중평균 어려우니 단순 평균 (충분히 합리적)
+        if (c['평균']!=null && m['평균']!=null) m['평균'] = +((m['평균']+c['평균'])/2).toFixed(2);
+        if (c['최소']!=null) m['최소'] = m['최소']!=null ? Math.min(m['최소'], c['최소']) : c['최소'];
+        if (c['최대']!=null) m['최대'] = m['최대']!=null ? Math.max(m['최대'], c['최대']) : c['최대'];
+      }
+    }
+  }
+  return Object.keys(merged).length ? merged : null;
 }
 
 function buildJongMap() {
@@ -1212,6 +1276,54 @@ function showDetail(i) {
       ${cards}
     </div>
     ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : ''}
+    ${(() => {
+      const cs = lookupCases(s.univ, s.dept);
+      if (!cs) return '';
+      const naesin = n(document.getElementById('naesin').value);
+      const card = (label, c) => {
+        if (!c || !c['지원']) return '';
+        const isGrade = label !== '정시';
+        const rate = c['합격률']!=null ? `${c['합격률']}%` : '-';
+        const myPos = (isGrade && naesin!=null && c['평균']!=null)
+          ? (naesin <= c['p25'] ? '상위 25% 이내' : naesin <= c['p50'] ? '상위 50% 이내'
+             : naesin <= c['p75'] ? '상위 75% 이내' : naesin <= c['최대'] ? '합격 범위 내'
+             : '합격선 밖')
+          : '';
+        const myPosCls = naesin!=null && c['평균']!=null
+          ? (naesin <= c['p50'] ? 'cs-good' : naesin <= c['최대'] ? 'cs-mid' : 'cs-bad') : '';
+        return `<div class="cs-card">
+          <div class="cs-title">${label}</div>
+          <div class="cs-stat-row">
+            <div class="cs-stat"><div class="cs-k">지원</div><div class="cs-v">${c['지원']}건</div></div>
+            <div class="cs-stat"><div class="cs-k">합격</div><div class="cs-v" style="color:var(--up)">${c['합격']}건</div></div>
+            <div class="cs-stat"><div class="cs-k">합격률</div><div class="cs-v">${rate}</div></div>
+            ${c['추합']>0?`<div class="cs-stat"><div class="cs-k">추합</div><div class="cs-v">${c['추합']}건</div></div>`:''}
+          </div>
+          ${isGrade && c['평균']!=null ? `
+          <div class="cs-grade-row">
+            <div class="cs-bar-wrap">
+              <div class="cs-bar-label">합격 등급 분포 (${c['최소']} ~ ${c['최대']})</div>
+              <div class="cs-bar">
+                <span class="cs-bar-q1" style="left:${(c['최소']-1)/8*100}%;width:${(c['p25']-c['최소'])/8*100}%"></span>
+                <span class="cs-bar-q2" style="left:${(c['p25']-1)/8*100}%;width:${(c['p75']-c['p25'])/8*100}%"></span>
+                <span class="cs-bar-q3" style="left:${(c['p75']-1)/8*100}%;width:${(c['최대']-c['p75'])/8*100}%"></span>
+                <span class="cs-bar-median" style="left:${(c['p50']-1)/8*100}%"></span>
+                ${naesin!=null?`<span class="cs-bar-me" style="left:${(naesin-1)/8*100}%" title="내 내신 ${naesin}"></span>`:''}
+              </div>
+              <div class="cs-bar-ticks"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span></div>
+            </div>
+            <div class="cs-medstat">
+              <div><span class="cs-k">평균</span><b>${c['평균']}등급</b></div>
+              <div><span class="cs-k">중앙값</span><b>${c['p50']}등급</b></div>
+              <div><span class="cs-k">25~75%</span><b>${c['p25']}~${c['p75']}</b></div>
+            </div>
+          </div>` : ''}
+          ${myPos ? `<div class="cs-mypos ${myPosCls}">내 내신 ${naesin}등급 → <b>${myPos}</b></div>` : ''}
+        </div>`;
+      };
+      const html = ['교과','종합','정시'].map(t=>card(t, cs[t])).filter(Boolean).join('');
+      return html ? `<div class="m-sec"><h4>실제 합격 사례 (수시사례 누적)</h4>${html}</div>` : '';
+    })()}
     <div class="m-sec">
       <h4>2025 → 2026 변경사항</h4>
       <div class="m-row"><span class="m-k">2025 모집단위</span><span class="m-v">${s.dept25||'-'}</span></div>
