@@ -669,20 +669,24 @@ async function loadCsvFromStorage() {
   } catch(_) {}
 }
 
+// 대학명 정규화: 여대↔여자대, 괄호 제거 등
+function normCaseUniv(n) {
+  return String(n||'').replace(/\(.*$/, '').replace(/여자대(학교)?$/,'여대').replace(/대학교$/,'대').replace(/\s/g,'').trim();
+}
 // 합격 사례 조회 — 대학명에 (분교/계열) 접미사가 있을 수 있어 부분 일치 매칭
 function lookupCases(univ, dept) {
   if (!casesData) return null;
   const exact = casesData[`${univ}|${dept}`];
   if (exact) return exact;
+  const nu = normCaseUniv(univ);
   // 같은 학과명을 가진 분교/계열 키들을 모두 모아서 합산
   const merged = {};
   for (const k in casesData) {
     const pipe = k.indexOf('|');
     const ku = k.slice(0, pipe), kd = k.slice(pipe + 1);
     if (kd !== dept) continue;
-    // 대학명 base 매칭: 괄호 이전 부분이 일치
-    const baseKu = ku.replace(/\(.*$/, '').trim();
-    if (baseKu === univ || ku === univ) {
+    const nku = normCaseUniv(ku);
+    if (nku === nu) {
       for (const cat in casesData[k]) {
         if (!merged[cat]) { merged[cat] = {...casesData[k][cat]}; continue; }
         const m = merged[cat], c = casesData[k][cat];
