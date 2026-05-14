@@ -209,7 +209,8 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 .cs-card{margin-bottom:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
 .cs-card:last-child{margin-bottom:0;}
 .cs-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;}
-.cs-title::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;}
+.cs-title::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;flex-shrink:0;}
+.cs-typenames{font-size:10px;color:var(--text-3);font-weight:500;margin-left:2px;}
 .cs-stat-row{display:flex;gap:8px;margin-bottom:10px;}
 .cs-stat{flex:1;background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center;}
 .cs-k{font-size:9px;color:var(--text-3);margin-bottom:2px;}
@@ -1284,10 +1285,17 @@ function showDetail(i) {
       const cs = lookupCases(s.univ, s.dept);
       if (!cs) return '';
       const naesin = n(document.getElementById('naesin').value);
+      const typeNames = {
+        '교과': (s.gyo||[]).map(x=>x.name).filter(Boolean),
+        '종합': (s.jong||[]).map(x=>x.name).filter(Boolean),
+        '정시': []
+      };
       const card = (label, c) => {
         if (!c || !c['지원']) return '';
         const isGrade = label !== '정시';
         const rate = c['합격률']!=null ? `${c['합격률']}%` : '-';
+        const names = typeNames[label] || [];
+        const nameTag = names.length ? `<span class="cs-typenames">${names.join(' · ')}</span>` : '';
         const myPos = (isGrade && naesin!=null && c['평균']!=null)
           ? (naesin <= c['p25'] ? '상위 25% 이내' : naesin <= c['p50'] ? '상위 50% 이내'
              : naesin <= c['p75'] ? '상위 75% 이내' : naesin <= c['최대'] ? '합격 범위 내'
@@ -1296,7 +1304,7 @@ function showDetail(i) {
         const myPosCls = naesin!=null && c['평균']!=null
           ? (naesin <= c['p50'] ? 'cs-good' : naesin <= c['최대'] ? 'cs-mid' : 'cs-bad') : '';
         return `<div class="cs-card">
-          <div class="cs-title">${label}</div>
+          <div class="cs-title">${label}${nameTag}</div>
           <div class="cs-stat-row">
             <div class="cs-stat"><div class="cs-k">지원</div><div class="cs-v">${c['지원']}건</div></div>
             <div class="cs-stat"><div class="cs-k">합격</div><div class="cs-v" style="color:var(--up)">${c['합격']}건</div></div>
