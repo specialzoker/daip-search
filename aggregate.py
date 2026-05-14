@@ -57,7 +57,8 @@ work = pd.DataFrame({
 })
 work = work[work['univ'].notna() & work['dept'].notna() & (work['univ']!='nan') & (work['dept']!='nan')]
 work = work[work['cat'].isin(['교과','종합','정시'])]
-work['pass'] = work['final'].str.startswith('합')
+work['pass'] = work['final'].isin(['합','추합'])
+work['chuhab'] = work['final'] == '추합'  # 추합 자체 카운트용
 print(f'유효 행: {len(work):,}')
 
 # 계열별 비교등급 결정
@@ -108,9 +109,10 @@ for (univ, dept, cat), g in work.groupby(['univ','dept','cat']):
                 entry['기준'] = '계열별 환산(국영수사/국영수과 100%)'
             else:
                 entry['기준'] = '전교과 100%'
-    # 추합
-    chh = passed[(passed['rank'].notna()) & (passed['n_admit'].notna()) & (passed['rank'] > passed['n_admit'])]
-    if len(chh): entry['추합'] = int(len(chh))
+    # 추합 — 최종단계 == '추합'
+    n_chuhab = int(passed['chuhab'].sum())
+    if n_chuhab: entry['추합'] = n_chuhab
+    entry['최초합격'] = int(n_pass - n_chuhab)  # 추합 제외 최초합격수
     result[key][cat] = entry
 
 print(f'학과 수: {len(result):,}')

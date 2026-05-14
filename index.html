@@ -1307,9 +1307,8 @@ function showDetail(i) {
           <div class="cs-title">${label}${nameTag}</div>
           <div class="cs-stat-row">
             <div class="cs-stat"><div class="cs-k">지원</div><div class="cs-v">${c['지원']}건</div></div>
-            <div class="cs-stat"><div class="cs-k">합격</div><div class="cs-v" style="color:var(--up)">${c['합격']}건</div></div>
+            <div class="cs-stat"><div class="cs-k">합격</div><div class="cs-v" style="color:var(--up)">${c['합격']}건</div>${(c['최초합격']!=null||c['추합']!=null)?`<div style="font-size:9px;color:var(--text-3);margin-top:1px">최초 ${c['최초합격']||0} + 추합 ${c['추합']||0}</div>`:''}</div>
             <div class="cs-stat"><div class="cs-k">합격률</div><div class="cs-v">${rate}</div></div>
-            ${c['추합']>0?`<div class="cs-stat"><div class="cs-k">추합</div><div class="cs-v">${c['추합']}건</div></div>`:''}
           </div>
           ${isGrade && c['평균']!=null ? `
           ${c['기준']?`<div style="font-size:9px;color:var(--text-3);margin-bottom:6px">기준: ${c['기준']}</div>`:''}
