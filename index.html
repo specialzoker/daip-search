@@ -60,6 +60,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .s4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px;}
 hr.dv{border:none;border-top:1px solid var(--border);margin:12px 0;}
 
+/* 학년 칩 */
+.grade-chips{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:10px;}
+.gc{display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid var(--border);background:var(--bg);color:var(--text-2);border-radius:6px;padding:6px 4px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .15s;}
+.gc:hover{border-color:var(--text-3);}
+.gc.gc-on{background:var(--text);color:#fff;border-color:var(--text);}
+.gc-sub{font-size:9px;font-weight:500;opacity:.7;}
+
 /* 내신 입력 박스 */
 .grade-box{display:flex;align-items:center;gap:12px;background:var(--up-bg);border:1.5px solid var(--accent);border-radius:8px;padding:10px 14px;}
 .grade-box input{border:none;background:transparent;font-size:26px;font-weight:700;font-family:var(--mono);color:var(--accent);width:84px;text-align:center;outline:none;}
@@ -378,10 +385,28 @@ tbody td.r{text-align:right;font-family:var(--mono);}
     </div>
 
     <hr class="dv">
-    <div class="sec">내신 전체 등급</div>
+    <div class="sec">학년 (등급제)</div>
+    <div class="grade-chips">
+      <button class="gc gc-on" data-yr="3" onclick="setYear(3)">3학년 <span class="gc-sub">9등급</span></button>
+      <button class="gc"        data-yr="2" onclick="setYear(2)">2학년 <span class="gc-sub">5등급</span></button>
+      <button class="gc"        data-yr="1" onclick="setYear(1)">1학년 <span class="gc-sub">5등급</span></button>
+    </div>
+
+    <div class="sec" id="naesinLabel">내신 전체 등급</div>
     <div class="grade-box">
       <input id="naesin" type="number" step="0.01" min="1" max="9" placeholder="2.34" oninput="onInput()"/>
-      <div class="grade-hint">전체 내신 등급<br><span style="font-size:10px;opacity:.7">소수점 둘째 자리까지</span></div>
+      <div class="grade-hint" id="naesinHint">전체 내신 등급<br><span style="font-size:10px;opacity:.7">소수점 둘째 자리까지</span></div>
+    </div>
+    <div id="naesinConv" style="display:none;margin-top:6px;padding:6px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:11px;color:#1d4ed8;line-height:1.4"></div>
+    <div id="combSel" style="display:none;margin-top:6px;">
+      <div style="font-size:10px;color:var(--text-3);margin-bottom:3px;">반영조합 선택</div>
+      <select class="fs" id="combo" onchange="onInput()">
+        <option value="auto">자동 (계열별)</option>
+        <option value="전과목">전과목</option>
+        <option value="국수영사">국수영사 (인문/예체능)</option>
+        <option value="국수영과">국수영과 (자연)</option>
+        <option value="국수영사과">국수영사과</option>
+      </select>
     </div>
 
     <hr class="dv">
@@ -828,11 +853,82 @@ const dash = v => (!v||v==='-'||String(v).toLowerCase()==='nan')?null:String(v).
 // ════════════════════════════════════════════════════
 // 입력 변경 → 수능 평균 계산
 // ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+// 학년·5등급 환산
+// ════════════════════════════════════════════════════
+let curYear = parseInt(localStorage.getItem('snavi_year')||'3', 10);
+let grade5Tbl = null;
+fetch('grade5.json').then(r=>r.ok?r.json():null).then(d=>{ grade5Tbl=d; updateNaesinUI(); });
+
+function setYear(y){
+  curYear = y;
+  localStorage.setItem('snavi_year', String(y));
+  document.querySelectorAll('.gc').forEach(b=>b.classList.toggle('gc-on', parseInt(b.dataset.yr,10)===y));
+  updateNaesinUI();
+  onInput();
+}
+function updateNaesinUI(){
+  const is5 = curYear !== 3;
+  const naesinEl = document.getElementById('naesin');
+  document.getElementById('naesinLabel').textContent = is5 ? `${curYear}학년 내신 (5등급제)` : '내신 전체 등급';
+  document.getElementById('naesinHint').innerHTML = is5
+    ? `<strong>5등급 점수 입력</strong><br><span style="font-size:10px;opacity:.7">자동 9등급 환산</span>`
+    : `전체 내신 등급<br><span style="font-size:10px;opacity:.7">소수점 둘째 자리까지</span>`;
+  naesinEl.max = is5 ? 5 : 9;
+  naesinEl.placeholder = is5 ? '2.50' : '2.34';
+  document.getElementById('combSel').style.display = is5 ? '' : 'none';
+}
+// 5등급 → 9등급 lookup. 조합 = '전과목'|'국수영사'|'국수영과'|'국수영사과'|'auto'
+function convert5to9(g5, combo, series){
+  if (!grade5Tbl || g5 == null) return null;
+  if (combo === 'auto' || !combo) {
+    combo = (series==='자연') ? '국수영과' : (series==='인문'||series==='예체능') ? '국수영사' : '전과목';
+  }
+  const key = g5.toFixed(2);
+  const row = grade5Tbl[key];
+  if (row && row[combo] != null) return row[combo];
+  // 최근접 key fallback
+  let best = null, bd = Infinity;
+  for (const k in grade5Tbl) {
+    const d = Math.abs(parseFloat(k) - g5);
+    if (d < bd && grade5Tbl[k][combo] != null) { bd = d; best = grade5Tbl[k][combo]; }
+  }
+  return best;
+}
+// 현재 입력에서 "9등급 환산값" 반환 (3학년은 그대로, 1·2학년은 변환)
+function getEffNaesin(series){
+  const raw = n(document.getElementById('naesin').value);
+  if (raw == null) return null;
+  if (curYear === 3) return raw;
+  const combo = document.getElementById('combo')?.value || 'auto';
+  return convert5to9(raw, combo, series);
+}
+
 function onInput() {
   const ids=['su_kor','su_mat','su_ex1','su_ex2'];  // 영어 제외(절대평가)
   const vs=ids.map(id=>n(document.getElementById(id).value)).filter(v=>v!==null&&v>=0&&v<=100);
   document.getElementById('suAvg').textContent = vs.length
     ? (vs.reduce((a,b)=>a+b)/vs.length).toFixed(2)+'%' : '—';
+  // 5등급 환산 안내 (학과별 계열은 다르므로 자동/전과목 기준 4개 모두 노출)
+  const convBox = document.getElementById('naesinConv');
+  const raw = n(document.getElementById('naesin').value);
+  if (curYear !== 3 && raw != null && grade5Tbl) {
+    const combo = document.getElementById('combo').value;
+    if (combo === 'auto') {
+      const c = convert5to9(raw, '전과목');
+      const ks = convert5to9(raw, '국수영사');
+      const kg = convert5to9(raw, '국수영과');
+      convBox.style.display='';
+      convBox.innerHTML = `5등급 <b>${raw.toFixed(2)}</b> → 9등급 환산<br>
+        <span style="font-size:10px">전과목 <b>${c?.toFixed(2)||'-'}</b> · 인문/예체능 <b>${ks?.toFixed(2)||'-'}</b> · 자연 <b>${kg?.toFixed(2)||'-'}</b></span>`;
+    } else {
+      const v = convert5to9(raw, combo);
+      convBox.style.display='';
+      convBox.innerHTML = `5등급 <b>${raw.toFixed(2)}</b> → 9등급 환산 <b>${v?.toFixed(2)||'-'}</b> (${combo})`;
+    }
+  } else {
+    convBox.style.display='none';
+  }
 }
 
 // ════════════════════════════════════════════════════
@@ -841,7 +937,14 @@ function onInput() {
 function doSearch() {
   if (!rawData.length) return;
 
-  const naesin = n(document.getElementById('naesin').value);
+  const naesinRaw = n(document.getElementById('naesin').value);
+  const combo = document.getElementById('combo')?.value || 'auto';
+  // 학과별 series를 받아 9등급 환산값을 반환
+  function effNaesinFor(series) {
+    if (naesinRaw == null) return null;
+    if (curYear === 3) return naesinRaw;
+    return convert5to9(naesinRaw, combo, series);
+  }
   const suScores = {
     kor: n(document.getElementById('su_kor').value),
     mat: n(document.getElementById('su_mat').value),
@@ -852,7 +955,7 @@ function doSearch() {
   // 0~100 범위 외 값 제거
   Object.keys(suScores).forEach(k=>{ if(suScores[k]!==null&&(suScores[k]<0||suScores[k]>100)) suScores[k]=null; });
   const hasSu = Object.values(suScores).some(v=>v!==null);
-  if (!naesin && !hasSu) { showToast('내신 등급 또는 수능 백분위를 입력하세요'); return; }
+  if (naesinRaw == null && !hasSu) { showToast('내신 등급 또는 수능 백분위를 입력하세요'); return; }
 
   const kw = document.getElementById('kw').value.trim();
 
@@ -915,9 +1018,12 @@ function doSearch() {
     }
     const s = map.get(key);
     s._rows.push(row);
+    // 학과 계열에 맞춘 9등급 환산 내신 (3학년이면 그대로)
+    if (s.naesinEff === undefined) s.naesinEff = effNaesinFor(series);
+    const naesin = s.naesinEff;
 
     // ── 교과전형 ──
-    if (naesin) {
+    if (naesin != null) {
       for (const [tk,k50,k70] of [
         [C.g1t,C.g1_50,C.g1_70],[C.g2t,C.g2_50,C.g2_70],[C.g3t,C.g3_50,C.g3_70]
       ]) {
@@ -933,7 +1039,7 @@ function doSearch() {
     }
 
     // ── 종합전형 ──
-    if (naesin) {
+    if (naesin != null) {
       for (const [tk,k50,k70] of [
         [C.j1t,C.j1_50,C.j1_70],[C.j2t,C.j2_50,C.j2_70]
       ]) {
@@ -1194,7 +1300,8 @@ function showDetail(i) {
   document.getElementById('mSub').textContent   = `${s.series} · ${s.kwon} ${s.region} ${s.sub}`;
 
   const dcls={'안정':'dc-stable','가능':'dc-up','경계':'dc-mid','위험':'dc-dn','그러지마':'dc-stop'};
-  const naesin = n(document.getElementById('naesin').value);
+  const naesinRaw = n(document.getElementById('naesin').value);
+  const naesin = s.naesinEff != null ? s.naesinEff : naesinRaw;
 
   // 카드 생성 함수
   const card = (label, items, isSu) => {
@@ -1287,7 +1394,8 @@ function showDetail(i) {
     ${(() => {
       const cs = lookupCases(s.univ, s.dept);
       if (!cs) return '';
-      const naesin = n(document.getElementById('naesin').value);
+      const naesinRaw2 = n(document.getElementById('naesin').value);
+      const naesin = s.naesinEff != null ? s.naesinEff : naesinRaw2;
       const typeNames = {
         '교과': (s.gyo||[]).map(x=>x.name).filter(Boolean),
         '종합': (s.jong||[]).map(x=>x.name).filter(Boolean),
