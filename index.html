@@ -1124,12 +1124,18 @@ function doSearch() {
     if ((fTypes.has('all') || fTypes.has('정시')) && s.su) selEntries.push(s.su);
     if (!selEntries.length) continue;
 
-    // 여유 슬라이더 필터 — 선택된 전형 중 가장 유리한(diff 최소) 항목이 한계치 이내
+    // 여유 슬라이더 필터 — 선택된 전형 중 최소 한 개라도 여유가 한계치 이내인지 체크
+    // 등급: diff가 음수일수록 여유 큼 → 여유 = -diff
+    // 정시(%): diff가 양수일수록 여유 큼 → 여유 = diff/5 (1등급 ≈ 5% 환산)
     if (fMargin < 50) {
-      const limit = -fMargin / 10;  // 0~5.0 → -0.0~-5.0 (diff는 음수일수록 여유 큼)
-      const tightest = Math.min(...selEntries.map(x => x.diff));
-      // tightest >= limit 일 때만 통과 (예: limit=-1.0이면 여유 1.0등급 이내만)
-      if (tightest < limit) continue;
+      const maxMargin = fMargin / 10;  // 0.0 ~ 5.0 등급
+      const margins = selEntries.map(e => {
+        const isJeongsi = 'myPct' in e;
+        return isJeongsi ? (e.diff / 5) : (-e.diff);
+      });
+      // 가장 작은 여유 ≤ 한계 → 통과 (즉, 최소 한 전형이 충분히 타이트함)
+      const minMargin = Math.min(...margins);
+      if (minMargin > maxMargin) continue;
     }
 
     // 최고 판정 계산 (선택된 전형 기준)
@@ -1510,10 +1516,10 @@ function onMarginInput() {
   const lbl = document.getElementById('marginLbl');
   // 0~50을 0.0~5.0 등급 + ∞로 매핑. 50은 무제한, 0~30은 0.0~3.0, 그 이상은 더 큰 폭
   if (fMargin >= 50) lbl.textContent = '제한 없음';
-  else if (fMargin === 0) lbl.textContent = '여유 0.0등급 이내';
+  else if (fMargin === 0) lbl.textContent = '딱 맞음(여유 0)';
   else {
     const v = fMargin / 10;  // 0.1 ~ 5.0
-    lbl.textContent = `여유 ${v.toFixed(1)}등급 이내`;
+    lbl.textContent = `여유 ${v.toFixed(1)}등급 (정시 ${(v*5).toFixed(1)}%) 이내`;
   }
 }
 
