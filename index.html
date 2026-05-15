@@ -443,12 +443,28 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       </div>
     </div>
     <div class="ig" style="margin-top:8px">
-      <div class="fl">판정 기준 (최고 전형 기준)</div>
+      <div class="fl">전형 (중복 선택)</div>
+      <div class="chips" id="fTypes">
+        <span class="chip on" data-v="all">전체</span>
+        <span class="chip" data-v="교과">교과</span>
+        <span class="chip" data-v="종합">종합</span>
+        <span class="chip" data-v="정시">정시</span>
+      </div>
+    </div>
+    <div class="ig" style="margin-top:8px">
+      <div class="fl">판정 (중복 선택)</div>
       <div class="chips" id="fVerdict">
         <span class="chip on" data-v="all">전체</span>
-        <span class="chip" data-v="가능">가능 이상</span>
-        <span class="chip" data-v="경계">경계 이상</span>
+        <span class="chip" data-v="안정">안정</span>
+        <span class="chip" data-v="가능">가능</span>
+        <span class="chip" data-v="경계">경계</span>
+        <span class="chip" data-v="위험">위험</span>
       </div>
+    </div>
+    <div class="ig" style="margin-top:8px">
+      <div class="fl">여유 좁히기 <span id="marginLbl" style="float:right;font-family:var(--mono);color:var(--text-2)">제한 없음</span></div>
+      <input id="fMargin" type="range" min="0" max="50" step="1" value="50" oninput="onMarginInput()" style="width:100%;accent-color:var(--accent);cursor:pointer"/>
+      <div style="font-size:9px;color:var(--text-3);margin-top:2px;display:flex;justify-content:space-between"><span>딱 맞음</span><span>제한 없음</span></div>
     </div>
     <div class="ig" style="margin-top:8px">
       <div class="fl">대학, 학과 검색</div>
@@ -634,6 +650,8 @@ let filtered = [];  // 필터 후 schools 배열
 let fRegion  = new Set(['all']);
 let fSeries  = new Set(['all']);
 let fVerdict = new Set(['all']);
+let fTypes   = new Set(['all']);
+let fMargin  = 50;  // 50=무제한, 0~3 정도가 의미있는 범위 (0.1 단위로 환산)
 
 // ════════════════════════════════════════════════════
 // 초기화
@@ -1099,21 +1117,32 @@ function doSearch() {
   for (const s of map.values()) {
     if (!s.gyo.length && !s.jong.length && !s.su) continue;
 
-    // 최고 판정 계산 (가능 > 경계 > 위험 순)
-    const allVerdicts = [
-      ...s.gyo.map(g=>g.verdict),
-      ...s.jong.map(j=>j.verdict),
-      ...(s.su?[s.su.verdict]:[])
-    ];
-    const bestVerdict = allVerdicts.includes('가능')?'가능'
-                      : allVerdicts.includes('경계')?'경계'
-                      : allVerdicts.length?'위험':null;
+    // 선택된 전형의 entry만 모음 (다중 선택 가능)
+    const selEntries = [];
+    if (fTypes.has('all') || fTypes.has('교과')) selEntries.push(...s.gyo);
+    if (fTypes.has('all') || fTypes.has('종합')) selEntries.push(...s.jong);
+    if ((fTypes.has('all') || fTypes.has('정시')) && s.su) selEntries.push(s.su);
+    if (!selEntries.length) continue;
 
-    // 판정 범위 필터
+    // 여유 슬라이더 필터 — 선택된 전형 중 가장 유리한(diff 최소) 항목이 한계치 이내
+    if (fMargin < 50) {
+      const limit = -fMargin / 10;  // 0~5.0 → -0.0~-5.0 (diff는 음수일수록 여유 큼)
+      const tightest = Math.min(...selEntries.map(x => x.diff));
+      // tightest >= limit 일 때만 통과 (예: limit=-1.0이면 여유 1.0등급 이내만)
+      if (tightest < limit) continue;
+    }
+
+    // 최고 판정 계산 (선택된 전형 기준)
+    const selVerdicts = selEntries.map(x=>x.verdict);
+    const bestVerdict = selVerdicts.includes('안정')?'안정'
+                      : selVerdicts.includes('가능')?'가능'
+                      : selVerdicts.includes('경계')?'경계'
+                      : selVerdicts.includes('위험')?'위험'
+                      : selVerdicts.length?'그러지마':null;
+
+    // 판정 다중 선택 필터 (선택된 전형 중 하나라도 사용자 선택 판정과 일치)
     if (!fVerdict.has('all')) {
-      const order = verdictOrder(bestVerdict);
-      if (fVerdict.has('가능') && order > 1) continue;   // 안정+가능만
-      if (fVerdict.has('경계') && order > 2) continue;   // 안정+가능+경계
+      if (!selVerdicts.some(v => fVerdict.has(v))) continue;
     }
 
     s.bestVerdict = bestVerdict;
@@ -1474,6 +1503,19 @@ function setupChips(id, set) {
 setupChips('fRegion', fRegion);
 setupChips('fSeries', fSeries);
 setupChips('fVerdict', fVerdict);
+setupChips('fTypes',   fTypes);
+
+function onMarginInput() {
+  fMargin = +document.getElementById('fMargin').value;
+  const lbl = document.getElementById('marginLbl');
+  // 0~50을 0.0~5.0 등급 + ∞로 매핑. 50은 무제한, 0~30은 0.0~3.0, 그 이상은 더 큰 폭
+  if (fMargin >= 50) lbl.textContent = '제한 없음';
+  else if (fMargin === 0) lbl.textContent = '여유 0.0등급 이내';
+  else {
+    const v = fMargin / 10;  // 0.1 ~ 5.0
+    lbl.textContent = `여유 ${v.toFixed(1)}등급 이내`;
+  }
+}
 
 // ════════════════════════════════════════════════════
 // 관리자
