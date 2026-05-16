@@ -1071,8 +1071,8 @@ function doSearch() {
       }
     }
 
-    // ── 정시 ──
-    if (hasSu && s.su===null) {
+    // ── 정시 — 모든 행 중 학생에게 가장 유리한(diff 최대) 후보 선택 ──
+    if (hasSu) {
       const suCut = n(row[C.su_pct]);
       const area  = (row[C.su_area]||'').trim();
       if (suCut!==null) {
@@ -1080,8 +1080,9 @@ function doSearch() {
         if (myPct!==null) {
           const diff = myPct - suCut;
           const enghis = (row[C.su_enghis]||'').trim();
-          s.su = { cut:suCut, myPct, diff, verdict:vPct(diff), area, usedArea:area,
-                   enghis: (enghis && enghis!=='-') ? enghis : null };
+          const cand = { cut:suCut, myPct, diff, verdict:vPct(diff), area, usedArea:area,
+                         enghis: (enghis && enghis!=='-') ? enghis : null };
+          if (!s.su || cand.diff > s.su.diff) s.su = cand;
         }
       }
     }
