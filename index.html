@@ -348,7 +348,7 @@ tbody td.r{text-align:right;font-family:var(--mono);}
           <input type="file" id="csvInput" accept=".csv" onchange="handleFile(this.files[0])"/>
           📂 CSV 파일 클릭 또는 드래그
         </div>
-        <div class="a-hint">데이터는 구글 시트에서 자동 로드됩니다.<br>시트 주소: <span style="color:#4ade80;font-family:var(--mono);font-size:10px">docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28</span><br>CSV 업로드는 임시 미리보기용입니다.</div>
+        <div class="a-hint">데이터는 <span style="color:#4ade80;font-family:var(--mono);font-size:10px">data/main.csv · min.csv · jong.csv</span>에서 로드됩니다.<br>업데이트: 데이터정리본.xlsx 수정 → build_csv.py 실행 → git push<br>CSV 업로드는 임시 미리보기용입니다.</div>
       </div>
     </div>
     <hr class="a-div">
@@ -673,16 +673,16 @@ function handleFile(file) {
     if (!rawData.length) { showToast('데이터가 없습니다'); return; }
     finishLoad();
     document.getElementById('fileDrop').innerHTML = `✓ ${file.name} (${rawData.length.toLocaleString()}행) — 임시 로드 완료`;
-    showToast(`✓ ${rawData.length.toLocaleString()}행 로드 완료 (구글 시트 반영은 시트에서 직접 수정)`);
+    showToast(`✓ ${rawData.length.toLocaleString()}행 로드 완료 (실제 반영은 data/main.csv 업데이트 필요)`);
     closeAdmin();
   };
   reader.readAsText(file, 'UTF-8');
 }
 
-// 구글 시트에서 CSV 자동 로드
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=0';
-const SHEET_MIN_URL  = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=18364993';
-const SHEET_JONG_URL = 'https://docs.google.com/spreadsheets/d/1ozgTlsAu1WQbKzuL2bRPw5JHSWhg-7n4D_8UU0neG28/export?format=csv&gid=1511385939';
+// 로컬 CSV (대입통합검색기_데이터정리본.xlsx → build_csv.py 로 생성)
+const SHEET_CSV_URL  = 'data/main.csv';
+const SHEET_MIN_URL  = 'data/min.csv';
+const SHEET_JONG_URL = 'data/jong.csv';
 
 let minData  = [];
 let minMap   = new Map(); // key: `대학명|모집단위` → [{type,name,min,note,area}]
