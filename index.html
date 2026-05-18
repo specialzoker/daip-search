@@ -300,14 +300,39 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       경기진협 자료개발국 간사<br>
       광명북고 진로진학부장 <strong>정현석</strong><br><br>
       허가된 이메일로 접속하세요<br>
-      허가를 받으시려면 정현석에게 이메일 주소를 보내주세요<br>
+      처음이라면 아래에서 <strong>접속 신청</strong>을 해주세요 (승인까지 시간이 걸릴 수 있습니다)<br>
       허가되지 않은 접속(사교육 등)을 막기위해 접속 로그가 기록됩니다. 동의하지 않으시면 접속하지 않으시길 바랍니다.
     </div>
-    <label class="login-label">이메일 주소</label>
-    <input class="login-input" id="loginEmail" type="email" placeholder="example@school.kr"
-      onkeydown="if(event.key==='Enter')doLogin()"/>
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">접속하기</button>
-    <div class="login-err" id="loginErr"></div>
+
+    <!-- 로그인 폼 -->
+    <div id="loginFormBox">
+      <label class="login-label">이메일 주소</label>
+      <input class="login-input" id="loginEmail" type="email" placeholder="example@school.kr"
+        onkeydown="if(event.key==='Enter')doLogin()"/>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">접속하기</button>
+      <div class="login-err" id="loginErr"></div>
+      <div style="margin-top:14px;text-align:center;font-size:12px;color:#999;">
+        아직 권한이 없으신가요?
+        <a href="#" onclick="showRequestForm();return false;" style="color:#4ade80;text-decoration:underline;margin-left:4px;">접속 신청하기</a>
+      </div>
+    </div>
+
+    <!-- 접속 신청 폼 -->
+    <div id="requestFormBox" style="display:none;">
+      <label class="login-label">이메일 주소</label>
+      <input class="login-input" id="reqEmail" type="email" placeholder="example@school.kr"/>
+      <label class="login-label" style="margin-top:8px;">이름</label>
+      <input class="login-input" id="reqName" type="text" placeholder="홍길동"/>
+      <label class="login-label" style="margin-top:8px;">소속 학교</label>
+      <input class="login-input" id="reqSchool" type="text" placeholder="○○고등학교"
+        onkeydown="if(event.key==='Enter')submitAccessRequest()"/>
+      <button class="login-btn" id="reqBtn" onclick="submitAccessRequest()" style="margin-top:12px;">접속 신청하기</button>
+      <div class="login-err" id="reqErr"></div>
+      <div id="reqOk" style="display:none;margin-top:10px;padding:10px;background:#064e3b;border:1px solid #047857;border-radius:6px;color:#a7f3d0;font-size:12px;line-height:1.5;text-align:center;"></div>
+      <div style="margin-top:14px;text-align:center;font-size:12px;color:#999;">
+        <a href="#" onclick="showLoginForm();return false;" style="color:#999;text-decoration:underline;">← 로그인으로 돌아가기</a>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -358,6 +383,14 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       <input class="a-input" style="width:150px" id="pw2" type="password" placeholder="확인"/>
       <button class="abtn abtn-n" onclick="changePw()">변경</button>
     </div>
+    <hr class="a-div">
+    <h4>접속 신청 관리 <span id="reqBadge" style="display:none;background:#dc2626;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle;">0</span></h4>
+    <div class="a-row" style="gap:4px;">
+      <button class="abtn abtn-n" id="reqTabPending" onclick="setReqTab('pending')" style="background:#1e3a8a;color:#fff;border-color:#3b82f6;">대기</button>
+      <button class="abtn abtn-n" id="reqTabRejected" onclick="setReqTab('rejected')">거절됨</button>
+      <button class="abtn abtn-n" onclick="loadRequestList()" style="margin-left:auto;">↻ 새로고침</button>
+    </div>
+    <div id="requestList" style="margin-top:8px;max-height:240px;overflow-y:auto;border:1px solid #2a2a2a;border-radius:6px;padding:4px;"></div>
     <hr class="a-div">
     <h4>접속 허가 이메일 관리</h4>
     <div class="a-row">
@@ -571,7 +604,19 @@ async function doLogin() {
   try {
     const doc = await db.collection('allowed_emails').doc(email).get();
     if (!doc.exists) {
-      err.textContent = '접근 권한이 없습니다. 관리자에게 문의하세요.';
+      // 신청 상태 확인
+      let extraMsg = '';
+      try {
+        const reqDoc = await db.collection('access_requests').doc(email).get();
+        if (reqDoc.exists) {
+          const status = (reqDoc.data() || {}).status || 'pending';
+          if (status === 'pending')       extraMsg = ' (신청이 접수되어 검토 중입니다)';
+          else if (status === 'rejected') extraMsg = ' (신청이 거절되었습니다)';
+        } else {
+          extraMsg = ' — 아래 "접속 신청하기"를 이용하세요.';
+        }
+      } catch(_) {}
+      err.innerHTML = '접근 권한이 없습니다.' + extraMsg;
       btn.disabled = false; btn.textContent = '접속하기';
       return;
     }
@@ -609,6 +654,78 @@ function doLogout() {
   document.getElementById('logoutBtn').style.display   = 'none';
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginErr').textContent = '';
+  showLoginForm();
+}
+
+// 로그인 ↔ 신청 폼 전환
+function showRequestForm() {
+  document.getElementById('loginFormBox').style.display   = 'none';
+  document.getElementById('requestFormBox').style.display = 'block';
+  // 로그인 화면에 입력한 이메일이 있으면 신청 폼에 자동 채움
+  const e = document.getElementById('loginEmail').value.trim();
+  if (e) document.getElementById('reqEmail').value = e;
+  document.getElementById('reqErr').textContent = '';
+  document.getElementById('reqOk').style.display = 'none';
+}
+function showLoginForm() {
+  document.getElementById('loginFormBox').style.display   = 'block';
+  document.getElementById('requestFormBox').style.display = 'none';
+}
+
+// 접속 신청 제출
+async function submitAccessRequest() {
+  const email  = document.getElementById('reqEmail').value.trim().toLowerCase();
+  const name   = document.getElementById('reqName').value.trim();
+  const school = document.getElementById('reqSchool').value.trim();
+  const btn    = document.getElementById('reqBtn');
+  const err    = document.getElementById('reqErr');
+  const ok     = document.getElementById('reqOk');
+  err.textContent = ''; ok.style.display = 'none';
+
+  if (!email)  { err.textContent = '이메일을 입력하세요.'; return; }
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { err.textContent = '올바른 이메일 형식이 아닙니다.'; return; }
+  if (!name)   { err.textContent = '이름을 입력하세요.'; return; }
+  if (!school) { err.textContent = '소속 학교를 입력하세요.'; return; }
+
+  btn.disabled = true; btn.textContent = '신청 중...';
+  try {
+    // 이미 허가된 이메일이면 바로 안내
+    const allowed = await db.collection('allowed_emails').doc(email).get();
+    if (allowed.exists) {
+      err.textContent = '이미 허가된 이메일입니다. 로그인해 주세요.';
+      btn.disabled = false; btn.textContent = '접속 신청하기';
+      return;
+    }
+    // 기존 신청 확인
+    const existing = await db.collection('access_requests').doc(email).get();
+    if (existing.exists) {
+      const status = (existing.data() || {}).status || 'pending';
+      if (status === 'pending') {
+        err.textContent = '이미 신청이 접수되었습니다. 승인을 기다려 주세요.';
+        btn.disabled = false; btn.textContent = '접속 신청하기';
+        return;
+      }
+      if (status === 'rejected') {
+        err.textContent = '이전 신청이 거절되었습니다. 관리자에게 문의해 주세요.';
+        btn.disabled = false; btn.textContent = '접속 신청하기';
+        return;
+      }
+    }
+    await db.collection('access_requests').doc(email).set({
+      email, name, school,
+      status: 'pending',
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      ua: navigator.userAgent.substring(0, 100),
+    });
+    ok.style.display = 'block';
+    ok.innerHTML = `✓ 신청이 접수되었습니다.<br>관리자 승인 후 로그인 가능합니다.`;
+    document.getElementById('reqEmail').value  = '';
+    document.getElementById('reqName').value   = '';
+    document.getElementById('reqSchool').value = '';
+  } catch(e) {
+    err.textContent = '신청 실패: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '접속 신청하기';
 }
 
 // 페이지 로드 시 이메일 목록 미리 로드
@@ -1544,6 +1661,7 @@ function checkPw(){
     document.getElementById('adminLock').style.display='none';
     document.getElementById('adminContent').style.display='block';
     loadEmailList();
+    loadRequestList();
   } else {
     showToast('비밀번호가 틀렸습니다');
     document.getElementById('adminPw').value='';
@@ -1610,6 +1728,127 @@ async function deleteEmail(email) {
     await db.collection('allowed_emails').doc(email).delete();
     showToast(`✓ ${email} 삭제 완료`);
     loadEmailList();
+  } catch(e) {
+    showToast('삭제 실패: ' + e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// 접속 신청 관리
+// ════════════════════════════════════════════════════
+let reqTabState = 'pending';
+function setReqTab(tab) {
+  reqTabState = tab;
+  const on  = 'background:#1e3a8a;color:#fff;border-color:#3b82f6;';
+  const off = '';
+  document.getElementById('reqTabPending').setAttribute('style',  tab==='pending'  ? on : off);
+  document.getElementById('reqTabRejected').setAttribute('style', tab==='rejected' ? on : off);
+  loadRequestList();
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadRequestList() {
+  const list  = document.getElementById('requestList');
+  const badge = document.getElementById('reqBadge');
+  list.innerHTML = '<div style="color:#666;font-size:11px;padding:6px">불러오는 중...</div>';
+  try {
+    const snap = await db.collection('access_requests').get();
+    // 대기중 개수 배지 업데이트
+    const pendingCount = snap.docs.filter(d => ((d.data()||{}).status||'pending') === 'pending').length;
+    if (pendingCount > 0) { badge.style.display='inline-block'; badge.textContent = pendingCount; }
+    else                  { badge.style.display='none'; }
+
+    const filtered = snap.docs
+      .filter(d => ((d.data()||{}).status||'pending') === reqTabState)
+      .sort((a,b) => {
+        const ta = (a.data().requestedAt && a.data().requestedAt.seconds) || 0;
+        const tb = (b.data().requestedAt && b.data().requestedAt.seconds) || 0;
+        return tb - ta;
+      });
+
+    if (!filtered.length) {
+      const msg = reqTabState === 'pending' ? '대기 중인 신청 없음' : '거절된 신청 없음';
+      list.innerHTML = `<div style="color:#666;font-size:11px;padding:6px">${msg}</div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(doc => {
+      const d = doc.data() || {};
+      const when = d.requestedAt && d.requestedAt.seconds
+        ? new Date(d.requestedAt.seconds * 1000).toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+        : '-';
+      const buttons = reqTabState === 'pending'
+        ? `<button onclick="approveRequest('${doc.id}')" style="background:#15803d;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;margin-right:4px;">승인</button>
+           <button onclick="rejectRequest('${doc.id}')" style="background:#7f1d1d;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;">거절</button>`
+        : `<button onclick="approveRequest('${doc.id}')" style="background:#15803d;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;margin-right:4px;">재승인</button>
+           <button onclick="deleteRequest('${doc.id}')" style="background:#4b5563;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:10px;cursor:pointer;">삭제</button>`;
+      return `
+        <div style="padding:8px;border-bottom:1px solid #2a2a2a;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:var(--mono);font-size:11px;color:#eee;word-break:break-all;">${escapeHtml(doc.id)}</div>
+              <div style="font-size:11px;color:#aaa;margin-top:2px;">
+                <strong style="color:#ddd;">${escapeHtml(d.name)}</strong>
+                <span style="color:#888;margin:0 4px;">·</span>
+                ${escapeHtml(d.school)}
+              </div>
+              <div style="font-size:10px;color:#666;margin-top:2px;">신청: ${when}</div>
+            </div>
+            <div style="flex-shrink:0;">${buttons}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="color:#f87171;font-size:11px;padding:6px">로드 실패: ${e.message}</div>`;
+  }
+}
+
+async function approveRequest(email) {
+  if (!confirm(`${email} 을 승인하시겠습니까?`)) return;
+  try {
+    const reqDoc = await db.collection('access_requests').doc(email).get();
+    const data = reqDoc.exists ? (reqDoc.data() || {}) : {};
+    await db.collection('allowed_emails').doc(email).set({
+      name: data.name || '',
+      school: data.school || '',
+      approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection('access_requests').doc(email).set({
+      ...data,
+      status: 'approved',
+      decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    showToast(`✓ ${email} 승인 완료`);
+    loadRequestList();
+    loadEmailList();
+  } catch(e) {
+    showToast('승인 실패: ' + e.message);
+  }
+}
+
+async function rejectRequest(email) {
+  if (!confirm(`${email} 신청을 거절하시겠습니까?`)) return;
+  try {
+    await db.collection('access_requests').doc(email).set({
+      status: 'rejected',
+      decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    showToast(`✓ ${email} 거절 처리`);
+    loadRequestList();
+  } catch(e) {
+    showToast('거절 실패: ' + e.message);
+  }
+}
+
+async function deleteRequest(email) {
+  if (!confirm(`${email} 신청 기록을 완전 삭제하시겠습니까?`)) return;
+  try {
+    await db.collection('access_requests').doc(email).delete();
+    showToast(`✓ ${email} 기록 삭제`);
+    loadRequestList();
   } catch(e) {
     showToast('삭제 실패: ' + e.message);
   }
