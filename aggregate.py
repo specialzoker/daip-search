@@ -5,7 +5,7 @@
 """
 import pandas as pd, json, numpy as np
 
-SRC = r'C:\클라우드파일\다운 받은 파일\수시사례데이터통합_260423.xlsx'
+SRC = r'C:\클라우드파일\다운 받은 파일\수시사례데이터통합_2.xlsx'
 OUT = r'C:\Users\user\search\cases.json'
 
 # 원본 파일은 2줄 헤더 (row0=대분류, row1=가중치) — skiprows로 가중치 행 건너뜀
