@@ -1040,10 +1040,15 @@ function getEffNaesin(series){
 }
 
 function onInput() {
-  const ids=['su_kor','su_mat','su_ex1','su_ex2'];  // 영어 제외(절대평가)
-  const vs=ids.map(id=>n(document.getElementById(id).value)).filter(v=>v!==null&&v>=0&&v<=100);
-  document.getElementById('suAvg').textContent = vs.length
-    ? (vs.reduce((a,b)=>a+b)/vs.length).toFixed(2)+'%' : '—';
+  // 수능 평균 = (국어 + 수학 + 탐구평균) / 3   (탐구평균 = (탐구1+탐구2)/2)
+  // 영어 제외(절대평가). 빈 칸은 제외하고 있는 항목끼리 평균.
+  const val = id => { const v=n(document.getElementById(id).value); return (v!==null&&v>=0&&v<=100)?v:null; };
+  const kor=val('su_kor'), mat=val('su_mat'), e1=val('su_ex1'), e2=val('su_ex2');
+  const ex = [e1,e2].filter(v=>v!==null);
+  const exAvg = ex.length ? ex.reduce((a,b)=>a+b)/ex.length : null;
+  const parts = [kor, mat, exAvg].filter(v=>v!==null);
+  document.getElementById('suAvg').textContent = parts.length
+    ? (parts.reduce((a,b)=>a+b)/parts.length).toFixed(2)+'%' : '—';
   // 5등급 환산 안내 (학과별 계열은 다르므로 자동/전과목 기준 4개 모두 노출)
   const convBox = document.getElementById('naesinConv');
   const raw = n(document.getElementById('naesin').value);
