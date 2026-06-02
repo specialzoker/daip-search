@@ -388,7 +388,8 @@ tbody td.r{text-align:right;font-family:var(--mono);}
     <div class="a-row" style="gap:4px;">
       <button class="abtn abtn-n" id="reqTabPending" onclick="setReqTab('pending')" style="background:#1e3a8a;color:#fff;border-color:#3b82f6;">대기</button>
       <button class="abtn abtn-n" id="reqTabRejected" onclick="setReqTab('rejected')">거절됨</button>
-      <button class="abtn abtn-n" onclick="loadRequestList()" style="margin-left:auto;">↻ 새로고침</button>
+      <button class="abtn abtn-g" id="reqApproveAll" onclick="approveAllPending()" style="margin-left:auto;">✓ 모두 승인</button>
+      <button class="abtn abtn-n" onclick="loadRequestList()">↻ 새로고침</button>
     </div>
     <div id="requestList" style="margin-top:8px;max-height:240px;overflow-y:auto;border:1px solid #2a2a2a;border-radius:6px;padding:4px;"></div>
     <hr class="a-div">
@@ -1748,6 +1749,7 @@ function setReqTab(tab) {
   const off = '';
   document.getElementById('reqTabPending').setAttribute('style',  tab==='pending'  ? on : off);
   document.getElementById('reqTabRejected').setAttribute('style', tab==='rejected' ? on : off);
+  document.getElementById('reqApproveAll').style.display = tab==='pending' ? '' : 'none';
   loadRequestList();
 }
 
@@ -1831,6 +1833,38 @@ async function approveRequest(email) {
     loadEmailList();
   } catch(e) {
     showToast('승인 실패: ' + e.message);
+  }
+}
+
+async function approveAllPending() {
+  try {
+    const snap = await db.collection('access_requests').get();
+    const pend = snap.docs.filter(d => ((d.data()||{}).status||'pending') === 'pending');
+    if (!pend.length) { showToast('대기 중인 신청이 없습니다'); return; }
+    if (!confirm(`대기 중인 ${pend.length}건을 모두 승인하시겠습니까?`)) return;
+    // Firestore batch는 최대 500개 작업 → 신청 250건 단위로 분할 처리
+    const CHUNK = 200;
+    for (let i = 0; i < pend.length; i += CHUNK) {
+      const batch = db.batch();
+      pend.slice(i, i + CHUNK).forEach(doc => {
+        const data = doc.data() || {};
+        batch.set(db.collection('allowed_emails').doc(doc.id), {
+          name: data.name || '',
+          school: data.school || '',
+          approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        batch.set(db.collection('access_requests').doc(doc.id), {
+          status: 'approved',
+          decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+    showToast(`✓ ${pend.length}건 일괄 승인 완료`);
+    loadRequestList();
+    loadEmailList();
+  } catch(e) {
+    showToast('일괄 승인 실패: ' + e.message);
   }
 }
 
