@@ -182,7 +182,11 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 
 /* 상세 전형 카드 */
 .detail-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;}
-.dcard{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--bg);}
+.dcard{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--bg);position:relative;}
+.dcard-method-hint{margin-top:8px;padding-top:7px;border-top:1px dashed rgba(0,0,0,.12);font-size:10px;font-weight:600;color:var(--text-3);display:flex;align-items:center;gap:3px;cursor:help;}
+.dcard-tip{display:none;position:absolute;top:100%;left:0;right:0;z-index:30;margin-top:5px;background:#1f2937;color:#fff;font-size:11px;line-height:1.55;font-weight:400;padding:9px 11px;border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);white-space:pre-wrap;text-align:left;}
+.dcard-tip::before{content:'';position:absolute;bottom:100%;left:18px;border:6px solid transparent;border-bottom-color:#1f2937;}
+.dcard:hover .dcard-tip{display:block;}
 .dcard.dc-stable{background:#eff6ff;border-color:#93c5fd;}
 .dcard.dc-up{background:var(--up-bg);border-color:#a7d5b8;}
 .dcard.dc-mid{background:var(--mid-bg);border-color:#f5cfa0;}
@@ -771,6 +775,7 @@ const C = {
   j2t:'종합2/전형', j2_50:'종합2/50%', j2_70:'종합2/70%',
   su_pct:'정시백분위', su_area:'2025 정시 반영영역', su_enghis:'영어한국사',
   chg_type:'전형변경', chg_dept:'모집단위변경',
+  gyoMethod:'교과/방법', jongMethod:'종합/방법', suMethod:'정시/방법',
 };
 
 // 판정 임계값
@@ -907,6 +912,10 @@ function buildJongMap() {
   const acadCol      = col('학업역량');
   const careerCol    = col('진로역량');
   const communityCol = col('공동체역량');
+  const methodCol    = col('전형방법');
+  const stageCol     = col('단계');
+  const recruitCol   = col('모집인원');
+  const intMethodCol = col('면접방법');
   for (const row of jongData) {
     const univ = (row[univCol]||'').trim();
     const name = (row[typeNameCol]||'').trim();
@@ -920,6 +929,10 @@ function buildJongMap() {
       acad:      (row[acadCol]     ||'').trim(),
       career:    (row[careerCol]   ||'').trim(),
       community: (row[communityCol]||'').trim(),
+      method:    (row[methodCol]   ||'').trim(),
+      stage:     (row[stageCol]    ||'').trim(),
+      recruit:   (row[recruitCol]  ||'').trim(),
+      intMethod: (row[intMethodCol]||'').trim(),
     };
     jongMap.set(`${univ}|${name}`, entry);
     // 대학명 정규화 키도 저장 (학교 접미사 제거)
@@ -1176,11 +1189,16 @@ function doSearch() {
         univ, dept, series,
         dept25: (row[C.dept25]||'').trim(),
         chg_type:(row[C.chg_type]||'').trim(), chg_dept:(row[C.chg_dept]||'').trim(),
+        gyoMethod:(row[C.gyoMethod]||'').trim(), jongMethod:(row[C.jongMethod]||'').trim(), suMethod:(row[C.suMethod]||'').trim(),
         gyo:[], jong:[], su:null, _rows:[]
       });
     }
     const s = map.get(key);
     s._rows.push(row);
+    // 전형 방법 — 첫 행에 없으면 이후 행에서 보충
+    if (!s.gyoMethod)  s.gyoMethod  = (row[C.gyoMethod]||'').trim();
+    if (!s.jongMethod) s.jongMethod = (row[C.jongMethod]||'').trim();
+    if (!s.suMethod)   s.suMethod   = (row[C.suMethod]||'').trim();
     // 학과 계열에 맞춘 9등급 환산 내신 (3학년이면 그대로)
     if (s.naesinEff === undefined) s.naesinEff = effNaesinFor(series);
     const naesin = s.naesinEff;
@@ -1606,10 +1624,30 @@ function showDetail(i) {
 
   // 카드 생성 함수
   const card = (label, items, isSu) => {
+    let methodTxt = '';
+    if (label==='교과전형')      methodTxt = s.gyoMethod || '';
+    else if (label==='정시전형') methodTxt = s.suMethod || '';
+    else if (label==='종합전형') {
+      // 종합은 jong.csv(종합전형 시트)의 전형방법을 전형명별로 모음
+      const parts = (s.jong||[]).map(j=>{
+        const info = lookupJong(s.univ, j.name);
+        if (!info) return '';
+        const segs = [];
+        if (info.method)    segs.push(info.method);
+        if (info.intMethod) segs.push('면접방법: ' + info.intMethod);
+        if (!segs.length) return '';
+        return (s.jong.length > 1 ? `[${j.name}]\n` : '') + segs.join('\n');
+      }).filter(Boolean);
+      methodTxt = parts.join('\n\n') || (s.jongMethod || '');
+    }
+    const methodBlock = methodTxt
+      ? `<div class="dcard-method-hint">ⓘ 전형방법</div><div class="dcard-tip">${escapeHtml(methodTxt)}</div>`
+      : '';
     if (!items || (Array.isArray(items) && !items.length)) {
       return `<div class="dcard dc-none">
         <div class="dcard-type">${label}</div>
         <div class="dcard-verdict" style="color:var(--text-3)">데이터 없음</div>
+        ${methodBlock}
       </div>`;
     }
     if (isSu) {
@@ -1639,6 +1677,7 @@ function showDetail(i) {
           </div>
         </div>`:''}
         ${fbNote}
+        ${methodBlock}
       </div>`;
     }
     // 교과/종합: 여러 전형 펼치기
@@ -1657,6 +1696,7 @@ function showDetail(i) {
         <div class="dcard-line">합격선 70% <span>${o.cut70.toFixed(2)}등급</span></div>
         <div style="font-size:10px;font-family:var(--mono);font-weight:700;color:inherit">${fmtMargin(o.diff, true, '등급')}</div>
       </div>`).join('')}
+      ${methodBlock}
     </div>`;
   };
 
