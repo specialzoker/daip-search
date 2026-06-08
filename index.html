@@ -1560,24 +1560,24 @@ function buildChartPanel(cfg, data) {
       <text x="${W-padR}" y="${(y-4).toFixed(1)}" text-anchor="end" font-size="10" font-weight="700" fill="#111">내 점수 ${cfg.my.toFixed(2)}${cfg.grade?'':'%'}</text>`;
   }
 
-  // 점 + X축 라벨
-  const showLabel = n <= 45;
+  // 점 + X축 라벨 (학과가 매우 많을 때만 솎아냄)
+  const labelEvery = n <= 70 ? 1 : Math.ceil(n/70);
   let dots='', labels='';
   pts.forEach((p,i)=>{
     const x=xOf(i), y=yOf(p.cut);
     const color=CHART_COLOR[p.verdict]||'#9ca3af';
     const tip=`${p.univ} ${p.dept}\n${cfg.label} 70%컷: ${p.cut}${cfg.grade?'등급':'%'}\n판정: ${p.verdict}`;
     dots += `<circle class="chart-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${color}" fill-opacity="0.85" stroke="#fff" stroke-width="1" onclick="showDetail(${p.idx})"><title>${escapeHtml(tip)}</title></circle>`;
-    if (showLabel) {
+    if (i % labelEvery === 0) {
       const lx=x, ly=padT+plotH+12;
-      labels += `<text x="${lx.toFixed(1)}" y="${ly}" text-anchor="end" font-size="9" fill="var(--text-2)" transform="rotate(-55 ${lx.toFixed(1)} ${ly})">${escapeHtml(p.univ.length>10?p.univ.slice(0,10):p.univ)}</text>`;
+      labels += `<text x="${lx.toFixed(1)}" y="${ly}" text-anchor="end" font-size="9" fill="var(--text-2)" transform="rotate(-55 ${lx.toFixed(1)} ${ly})">${escapeHtml(p.univ.length>11?p.univ.slice(0,11):p.univ)}</text>`;
     }
   });
 
   const sub = cfg.grade
     ? `학과별 70%컷 등급(점) · 점선=내 환산내신 · 점이 선보다 아래(더 낮은 등급)면 합격 유리`
     : `학과별 70%컷 백분위(점) · 점선=내 수능평균(참고) · 실제 판정은 학과 반영영역 기준(점 색)`;
-  const labelNote = showLabel ? '' : ` · 학과명은 점에 마우스를 올리면 표시`;
+  const labelNote = (labelEvery > 1) ? ` · 학과가 많아 일부 대학명만 표시(전체는 점에 마우스 오버)` : '';
 
   return `<div class="chart-panel">
     <div class="chart-title">${cfg.label} <span style="font-size:11px;color:var(--text-3);font-weight:500">(${n}개 학과)</span></div>
@@ -1692,6 +1692,20 @@ function showDetail(i) {
       ${cards}
     </div>
     ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : ''}
+    ${(() => {
+      const minItems = (minMap.get(`${s.univ}|${s.dept}`) || []).filter(m => m.min);
+      if (!minItems.length) return '';
+      const rows = minItems.map(m => `
+        <div class="mc-item" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 4px;">
+          <span class="mc-type">${m.type || m.name || '최저'}</span>
+          <span style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text)">${m.min}</span>
+          ${m.area ? `<span style="font-size:10px;color:var(--text-3)">반영: ${m.area}</span>` : ''}
+          ${m.note ? `<span style="font-size:10px;color:var(--text-3);width:100%">※ ${m.note}</span>` : ''}
+        </div>`).join('');
+      return `<div class="m-sec"><h4>수능 최저학력기준</h4>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:2px 12px;">${rows}</div>
+      </div>`;
+    })()}
     ${(() => {
       const cs = lookupCases(s.univ, s.dept);
       if (!cs) return '';
