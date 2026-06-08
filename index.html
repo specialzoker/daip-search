@@ -288,6 +288,22 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 .login-btn:disabled{opacity:.4;cursor:not-allowed;}
 .login-err{font-size:12px;color:var(--dn);margin-top:8px;min-height:18px;}
 .login-spinner{display:none;width:20px;height:20px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto;}
+/* 뷰 토글 & 그래프 */
+.view-toggle{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;}
+.vt-btn{background:var(--surface);color:var(--text-2);border:none;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.vt-btn.vt-on{background:var(--accent);color:#fff;}
+.chart-wrap{padding:10px 6px 4px;}
+.chart-panel{margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 8px 8px;}
+.chart-panel:last-child{margin-bottom:0;}
+.chart-title{font-size:13px;font-weight:700;color:var(--text);margin:0 8px;}
+.chart-sub{font-size:10px;color:var(--text-3);margin:2px 8px 6px;line-height:1.5;}
+.chart-scroll{overflow-x:auto;overflow-y:hidden;}
+.chart-empty{font-size:12px;color:var(--text-3);padding:16px 8px;text-align:center;}
+.chart-dot{cursor:pointer;}
+.chart-dot:hover{stroke:#111;stroke-width:2;}
+.chart-leg{display:flex;gap:10px;flex-wrap:wrap;margin:0 8px 4px;font-size:10px;color:var(--text-2);align-items:center;}
+.chart-leg .cl{display:inline-flex;align-items:center;gap:3px;}
+.chart-leg .cd{width:9px;height:9px;border-radius:50%;display:inline-block;}
 </style>
 </head>
 <body>
@@ -527,14 +543,20 @@ tbody td.r{text-align:right;font-family:var(--mono);}
           <div class="leg" style="font-size:11px;color:var(--text-3)">교과 · 종합 · 정시 순서</div>
         </div>
       </div>
-      <select class="sort-sel" id="sortSel" onchange="render()">
-        <option value="best">최고판정 순</option>
-        <option value="gyo">교과 차이값 순</option>
-        <option value="jong">종합 차이값 순</option>
-        <option value="su">정시 차이값 순</option>
-        <option value="univ">대학명 순</option>
-        <option value="dept">학과명 순</option>
-      </select>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+        <div class="view-toggle">
+          <button id="viewTable" class="vt-btn vt-on" onclick="setView('table')">표</button>
+          <button id="viewChart" class="vt-btn" onclick="setView('chart')">그래프</button>
+        </div>
+        <select class="sort-sel" id="sortSel" onchange="render()">
+          <option value="best">최고판정 순</option>
+          <option value="gyo">교과 차이값 순</option>
+          <option value="jong">종합 차이값 순</option>
+          <option value="su">정시 차이값 순</option>
+          <option value="univ">대학명 순</option>
+          <option value="dept">학과명 순</option>
+        </select>
+      </div>
     </div>
 
     <div class="table-wrap" id="resultBody">
@@ -1381,6 +1403,11 @@ function render() {
     return;
   }
 
+  // 정렬된 결과 저장 (상세 팝업/차트 클릭용)
+  render._sorted = data;
+
+  if (viewMode === 'chart') { renderChart(data); return; }
+
   const bc={'안정':'b-stable','가능':'b-up','경계':'b-mid','위험':'b-dn','그러지마':'b-stop'};
 
   const rows = data.map((s,i)=>{
@@ -1443,10 +1470,125 @@ function render() {
       <tbody>${rows}</tbody>
     </table>`;
 
-  // 정렬 후 인덱스 저장 (상세 팝업용)
-  render._sorted = data;
 }
 render._sorted = [];
+
+// ════════════════════════════════════════════════════
+// 그래프 뷰
+// ════════════════════════════════════════════════════
+let viewMode = 'table';
+function setView(m) {
+  viewMode = m;
+  document.getElementById('viewTable').classList.toggle('vt-on', m === 'table');
+  document.getElementById('viewChart').classList.toggle('vt-on', m === 'chart');
+  document.getElementById('sortSel').style.display = (m === 'chart') ? 'none' : '';
+  render();
+}
+
+const CHART_COLOR = {'안정':'#1d4ed8','가능':'#1a6b3c','경계':'#b45309','위험':'#be123c','그러지마':'#9ca3af'};
+
+function renderChart(data) {
+  // 내 점수 기준선: 교과/종합은 환산내신 중앙값, 정시는 참고용 수능평균
+  const naesinList = data.map(s => s.naesinEff).filter(v => v != null).sort((a,b)=>a-b);
+  const myGrade = naesinList.length ? naesinList[Math.floor(naesinList.length/2)] : null;
+  const suTxt = document.getElementById('suAvg').textContent;
+  const myPct = /^\d/.test(suTxt) ? parseFloat(suTxt) : null;
+
+  const cfgs = [
+    {key:'gyo',  label:'교과전형', grade:true,  my:myGrade},
+    {key:'jong', label:'종합전형', grade:true,  my:myGrade},
+    {key:'su',   label:'정시',     grade:false, my:myPct},
+  ];
+
+  const legend = `<div class="chart-leg">
+    ${['안정','가능','경계','위험','그러지마'].map(v=>`<span class="cl"><span class="cd" style="background:${CHART_COLOR[v]}"></span>${v}</span>`).join('')}
+    <span class="cl" style="margin-left:6px"><svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="#111" stroke-width="1.5" stroke-dasharray="4 3"/></svg> 내 점수</span>
+  </div>`;
+
+  let html = '<div class="chart-wrap">' + legend;
+  for (const cfg of cfgs) html += buildChartPanel(cfg, data);
+  html += '</div>';
+  document.getElementById('resultBody').innerHTML = html;
+}
+
+function buildChartPanel(cfg, data) {
+  // 점 데이터 추출
+  const pts = [];
+  data.forEach((s, idx) => {
+    let cut=null, verdict=null, diff=null, my=null;
+    if (cfg.key==='gyo' && s.gyo.length)  { const b=s.gyo.reduce((a,c)=>a.diff<c.diff?a:c);  cut=b.cut70; verdict=b.verdict; diff=b.diff; my=s.naesinEff; }
+    else if (cfg.key==='jong' && s.jong.length) { const b=s.jong.reduce((a,c)=>a.diff<c.diff?a:c); cut=b.cut70; verdict=b.verdict; diff=b.diff; my=s.naesinEff; }
+    else if (cfg.key==='su' && s.su)      { cut=s.su.cut; verdict=s.su.verdict; diff=s.su.diff; my=s.su.myPct; }
+    if (cut==null) return;
+    pts.push({univ:s.univ, dept:s.dept, cut, verdict, diff, my, idx});
+  });
+
+  if (!pts.length)
+    return `<div class="chart-panel"><div class="chart-title">${cfg.label}</div><div class="chart-empty">표시할 데이터가 없습니다</div></div>`;
+
+  // 정렬: 등급(교과/종합)은 좋은등급(작은값)부터, 정시는 높은 백분위부터
+  pts.sort((a,b)=> cfg.grade ? a.cut-b.cut : b.cut-a.cut);
+
+  const n = pts.length;
+  const stepX = Math.max(24, Math.min(46, 720/n));
+  const padL=46, padR=18, padT=16, padB=96, plotH=230;
+  const W = Math.round(padL + padR + stepX*n);
+  const H = padT + plotH + padB;
+
+  // Y 범위 (내 점수 포함)
+  const vals = pts.map(p=>p.cut);
+  if (cfg.my != null) vals.push(cfg.my);
+  let vmin=Math.min(...vals), vmax=Math.max(...vals);
+  const span=(vmax-vmin)||1; vmin-=span*0.12; vmax+=span*0.12;
+  const yOf = v => { const t=(v-vmin)/(vmax-vmin); return padT + (cfg.grade ? t : (1-t))*plotH; };
+  const xOf = i => padL + stepX*(i+0.5);
+
+  // Y축 눈금 (5단계)
+  let grid='';
+  for (let g=0; g<=4; g++) {
+    const v = vmin + (vmax-vmin)*g/4;
+    const y = yOf(v);
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`;
+    grid += `<text x="${padL-6}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--text-3)">${v.toFixed(cfg.grade?2:1)}</text>`;
+  }
+
+  // 내 점수 기준선
+  let myLine='';
+  if (cfg.my != null) {
+    const y = yOf(cfg.my);
+    myLine = `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="#111" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="${W-padR}" y="${(y-4).toFixed(1)}" text-anchor="end" font-size="10" font-weight="700" fill="#111">내 점수 ${cfg.my.toFixed(2)}${cfg.grade?'':'%'}</text>`;
+  }
+
+  // 점 + X축 라벨
+  const showLabel = n <= 45;
+  let dots='', labels='';
+  pts.forEach((p,i)=>{
+    const x=xOf(i), y=yOf(p.cut);
+    const color=CHART_COLOR[p.verdict]||'#9ca3af';
+    const tip=`${p.univ} ${p.dept}\n${cfg.label} 70%컷: ${p.cut}${cfg.grade?'등급':'%'}\n판정: ${p.verdict}`;
+    dots += `<circle class="chart-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${color}" fill-opacity="0.85" stroke="#fff" stroke-width="1" onclick="showDetail(${p.idx})"><title>${escapeHtml(tip)}</title></circle>`;
+    if (showLabel) {
+      const lx=x, ly=padT+plotH+12;
+      labels += `<text x="${lx.toFixed(1)}" y="${ly}" text-anchor="end" font-size="9" fill="var(--text-2)" transform="rotate(-55 ${lx.toFixed(1)} ${ly})">${escapeHtml(p.univ.length>10?p.univ.slice(0,10):p.univ)}</text>`;
+    }
+  });
+
+  const sub = cfg.grade
+    ? `학과별 70%컷 등급(점) · 점선=내 환산내신 · 점이 선보다 아래(더 낮은 등급)면 합격 유리`
+    : `학과별 70%컷 백분위(점) · 점선=내 수능평균(참고) · 실제 판정은 학과 반영영역 기준(점 색)`;
+  const labelNote = showLabel ? '' : ` · 학과명은 점에 마우스를 올리면 표시`;
+
+  return `<div class="chart-panel">
+    <div class="chart-title">${cfg.label} <span style="font-size:11px;color:var(--text-3);font-weight:500">(${n}개 학과)</span></div>
+    <div class="chart-sub">${sub}${labelNote}</div>
+    <div class="chart-scroll">
+      <svg width="${W}" height="${H}" style="display:block">
+        ${grid}${myLine}${dots}${labels}
+      </svg>
+    </div>
+  </div>`;
+}
 
 // ════════════════════════════════════════════════════
 // 상세 팝업
