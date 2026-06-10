@@ -40,6 +40,7 @@ C:\Users\user\search\
    - 시트: `메인` → main.csv, `최저기준` → min.csv, `전형방법` → jong.csv
    - 메인 시트에 전형별 `충원` 열 있음 (추가합격 인원). build_csv.py가 빌드 시
      `교과1/충원`·`종합1/충원`·`정시/충원` 등으로 자동 고유화 → 모달 전형 카드에 "충원 N명" 표시
+   - `모집인원_교과/종합/정시`가 있으면 카드에 충원율(충원/모집×100%)도 함께 표시 (100% 초과 정상)
 2. `python build_csv.py` 실행 → `data/*.csv` 생성
 3. `git add data/ && git commit -m "데이터 업데이트" && git push`
 

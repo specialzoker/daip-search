@@ -778,6 +778,7 @@ const C = {
   gyoMethod:'교과/방법', jongMethod:'종합/방법', suMethod:'정시/방법',
   g1c:'교과1/충원', g2c:'교과2/충원', g3c:'교과3/충원',
   j1c:'종합1/충원', j2c:'종합2/충원', suc:'정시/충원',
+  gyoCap:'모집인원_교과', jongCap:'모집인원_종합', suCap:'모집인원_정시',
 };
 
 // 판정 임계값
@@ -1192,6 +1193,7 @@ function doSearch() {
         dept25: (row[C.dept25]||'').trim(),
         chg_type:(row[C.chg_type]||'').trim(), chg_dept:(row[C.chg_dept]||'').trim(),
         gyoMethod:(row[C.gyoMethod]||'').trim(), jongMethod:(row[C.jongMethod]||'').trim(), suMethod:(row[C.suMethod]||'').trim(),
+        gyoCap:(row[C.gyoCap]||'').trim(), jongCap:(row[C.jongCap]||'').trim(), suCap:(row[C.suCap]||'').trim(),
         gyo:[], jong:[], su:null, _rows:[]
       });
     }
@@ -1201,6 +1203,9 @@ function doSearch() {
     if (!s.gyoMethod)  s.gyoMethod  = (row[C.gyoMethod]||'').trim();
     if (!s.jongMethod) s.jongMethod = (row[C.jongMethod]||'').trim();
     if (!s.suMethod)   s.suMethod   = (row[C.suMethod]||'').trim();
+    if (!s.gyoCap)  s.gyoCap  = (row[C.gyoCap]||'').trim();
+    if (!s.jongCap) s.jongCap = (row[C.jongCap]||'').trim();
+    if (!s.suCap)   s.suCap   = (row[C.suCap]||'').trim();
     // 학과 계열에 맞춘 9등급 환산 내신 (3학년이면 그대로)
     if (s.naesinEff === undefined) s.naesinEff = effNaesinFor(series);
     const naesin = s.naesinEff;
@@ -1626,6 +1631,13 @@ function showDetail(i) {
 
   // 카드 생성 함수
   const card = (label, items, isSu) => {
+    // 충원(추가합격) 라인 — 모집인원 있으면 충원율(%)도 표시
+    const cap = n(label==='교과전형'?s.gyoCap : label==='종합전형'?s.jongCap : label==='정시전형'?s.suCap : '');
+    const chungLine = (chung) => {
+      if (chung==null) return '';
+      const pct = (cap!=null && cap>0) ? ` <span style="font-size:10px;opacity:.75">(모집 ${cap}명 · ${Math.round(chung/cap*100)}%)</span>` : '';
+      return `<div class="dcard-line">충원 <span>${chung}명</span>${pct}</div>`;
+    };
     let methodTxt = '';
     if (label==='교과전형')      methodTxt = s.gyoMethod || '';
     else if (label==='정시전형') methodTxt = s.suMethod || '';
@@ -1664,7 +1676,7 @@ function showDetail(i) {
         <div class="dcard-line">합격선 <span>${s2.cut.toFixed(2)}%</span></div>
         <div class="dcard-line">내 점수 <span>${s2.myPct.toFixed(2)}%</span></div>
         <div class="dcard-diff">${fmtMargin(s2.diff, false, '%')}</div>
-        ${s2.chung!=null?`<div class="dcard-line">충원 <span>${s2.chung}명</span></div>`:''}
+        ${chungLine(s2.chung)}
         ${s2.usedArea?`<div class="typename" style="margin-top:4px">반영: ${s2.usedArea}</div>`:''}
         ${s2.enghis?`<div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.06);border-radius:6px;">
           <div style="font-size:10px;opacity:.6;margin-bottom:6px;white-space:nowrap">영어/한국사 (70% 합격 기준)</div>
@@ -1694,12 +1706,12 @@ function showDetail(i) {
       ${best.cut50!==null?`<div class="dcard-line">합격선 50% <span>${best.cut50.toFixed(2)}등급</span></div>`:''}
       ${naesin!==null?`<div class="dcard-line">내 내신 <span>${naesin.toFixed(2)}등급</span></div>`:''}
       <div class="dcard-diff">${fmtMargin(best.diff, true, '등급')}</div>
-      ${best.chung!=null?`<div class="dcard-line">충원 <span>${best.chung}명</span></div>`:''}
+      ${chungLine(best.chung)}
       ${others.map(o=>`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08)">
         <div class="typename">${o.name}</div>
         <div class="dcard-line">합격선 70% <span>${o.cut70.toFixed(2)}등급</span></div>
         <div style="font-size:10px;font-family:var(--mono);font-weight:700;color:inherit">${fmtMargin(o.diff, true, '등급')}</div>
-        ${o.chung!=null?`<div class="dcard-line">충원 ${o.chung}명</div>`:''}
+        ${chungLine(o.chung)}
       </div>`).join('')}
       ${methodBlock}
     </div>`;
