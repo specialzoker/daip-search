@@ -32,6 +32,18 @@ for sheet_name, out_name in SHEETS:
         if all(v is None or (isinstance(v, str) and not v.strip()) for v in row):
             continue
         rows.append([('' if v is None else str(v).strip()) for v in row])
+    # 메인 시트: 중복된 '충원' 헤더를 직전 전형 기준으로 고유화 (교과1/충원 등)
+    if sheet_name == '메인' and rows:
+        hdr = rows[0]
+        prefix = None
+        for i, h in enumerate(hdr):
+            if '/전형' in h:
+                prefix = h.split('/')[0]      # 교과1, 교과2, 종합1 ...
+            elif h == '정시백분위':
+                prefix = '정시'
+            elif h == '충원' and prefix:
+                hdr[i] = prefix + '/충원'
+        rows[0] = hdr
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)

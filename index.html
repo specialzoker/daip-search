@@ -776,6 +776,8 @@ const C = {
   su_pct:'정시백분위', su_area:'2025 정시 반영영역', su_enghis:'영어한국사',
   chg_type:'전형변경', chg_dept:'모집단위변경',
   gyoMethod:'교과/방법', jongMethod:'종합/방법', suMethod:'정시/방법',
+  g1c:'교과1/충원', g2c:'교과2/충원', g3c:'교과3/충원',
+  j1c:'종합1/충원', j2c:'종합2/충원', suc:'정시/충원',
 };
 
 // 판정 임계값
@@ -1205,8 +1207,8 @@ function doSearch() {
 
     // ── 교과전형 ──
     if (naesin != null) {
-      for (const [tk,k50,k70] of [
-        [C.g1t,C.g1_50,C.g1_70],[C.g2t,C.g2_50,C.g2_70],[C.g3t,C.g3_50,C.g3_70]
+      for (const [tk,k50,k70,kc] of [
+        [C.g1t,C.g1_50,C.g1_70,C.g1c],[C.g2t,C.g2_50,C.g2_70,C.g2c],[C.g3t,C.g3_50,C.g3_70,C.g3c]
       ]) {
         const typeName = dash(row[tk]);
         const cut70 = n(row[k70]);
@@ -1215,14 +1217,14 @@ function doSearch() {
         // 같은 전형명 중복 제거
         if (s.gyo.some(g=>g.name===typeName)) continue;
         const diff = naesin - cut70;
-        s.gyo.push({ name:typeName, cut70, cut50, diff, verdict:vGrade(diff) });
+        s.gyo.push({ name:typeName, cut70, cut50, diff, verdict:vGrade(diff), chung:n(row[kc]) });
       }
     }
 
     // ── 종합전형 ──
     if (naesin != null) {
-      for (const [tk,k50,k70] of [
-        [C.j1t,C.j1_50,C.j1_70],[C.j2t,C.j2_50,C.j2_70]
+      for (const [tk,k50,k70,kc] of [
+        [C.j1t,C.j1_50,C.j1_70,C.j1c],[C.j2t,C.j2_50,C.j2_70,C.j2c]
       ]) {
         const typeName = dash(row[tk]);
         const cut70 = n(row[k70]);
@@ -1230,7 +1232,7 @@ function doSearch() {
         if (!typeName || cut70===null || cut70>9 || cut70<0.5) continue;
         if (s.jong.some(j=>j.name===typeName)) continue;
         const diff = naesin - cut70;
-        s.jong.push({ name:typeName, cut70, cut50, diff, verdict:vGrade(diff) });
+        s.jong.push({ name:typeName, cut70, cut50, diff, verdict:vGrade(diff), chung:n(row[kc]) });
       }
     }
 
@@ -1244,7 +1246,7 @@ function doSearch() {
           const diff = myPct - suCut;
           const enghis = (row[C.su_enghis]||'').trim();
           const cand = { cut:suCut, myPct, diff, verdict:vPct(diff), area, usedArea:area,
-                         enghis: (enghis && enghis!=='-') ? enghis : null };
+                         enghis: (enghis && enghis!=='-') ? enghis : null, chung:n(row[C.suc]) };
           if (!s.su || cand.diff > s.su.diff) s.su = cand;
         }
       }
@@ -1662,6 +1664,7 @@ function showDetail(i) {
         <div class="dcard-line">합격선 <span>${s2.cut.toFixed(2)}%</span></div>
         <div class="dcard-line">내 점수 <span>${s2.myPct.toFixed(2)}%</span></div>
         <div class="dcard-diff">${fmtMargin(s2.diff, false, '%')}</div>
+        ${s2.chung!=null?`<div class="dcard-line">충원 <span>${s2.chung}명</span></div>`:''}
         ${s2.usedArea?`<div class="typename" style="margin-top:4px">반영: ${s2.usedArea}</div>`:''}
         ${s2.enghis?`<div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.06);border-radius:6px;">
           <div style="font-size:10px;opacity:.6;margin-bottom:6px;white-space:nowrap">영어/한국사 (70% 합격 기준)</div>
@@ -1691,10 +1694,12 @@ function showDetail(i) {
       ${best.cut50!==null?`<div class="dcard-line">합격선 50% <span>${best.cut50.toFixed(2)}등급</span></div>`:''}
       ${naesin!==null?`<div class="dcard-line">내 내신 <span>${naesin.toFixed(2)}등급</span></div>`:''}
       <div class="dcard-diff">${fmtMargin(best.diff, true, '등급')}</div>
+      ${best.chung!=null?`<div class="dcard-line">충원 <span>${best.chung}명</span></div>`:''}
       ${others.map(o=>`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08)">
         <div class="typename">${o.name}</div>
         <div class="dcard-line">합격선 70% <span>${o.cut70.toFixed(2)}등급</span></div>
         <div style="font-size:10px;font-family:var(--mono);font-weight:700;color:inherit">${fmtMargin(o.diff, true, '등급')}</div>
+        ${o.chung!=null?`<div class="dcard-line">충원 ${o.chung}명</div>`:''}
       </div>`).join('')}
       ${methodBlock}
     </div>`;
