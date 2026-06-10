@@ -44,6 +44,12 @@ for sheet_name, out_name in SHEETS:
             elif h == '충원' and prefix:
                 hdr[i] = prefix + '/충원'
         rows[0] = hdr
+        # 권역 정규화 — 데이터를 검색기 6권역 필터에 맞춤
+        KWON_MAP = {'서울권':'서울', '부울경권':'경상권', '대경권':'경상권', '호남권':'전라권'}
+        kwon_idx = hdr.index('권역') if '권역' in hdr else 0
+        for r in rows[1:]:
+            if kwon_idx < len(r) and r[kwon_idx] in KWON_MAP:
+                r[kwon_idx] = KWON_MAP[r[kwon_idx]]
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)
