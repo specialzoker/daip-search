@@ -8,14 +8,14 @@
 import openpyxl, csv, os, sys
 sys.stdout.reconfigure(encoding='utf-8')
 
-SRC = r'C:\Users\user\search\대입통합검색기_데이터정리본.xlsx'
+SRC = r'C:\Users\user\search\대입통합검색기_데이터템플릿.xlsx'
 DATA_DIR = r'C:\Users\user\search\data'
 os.makedirs(DATA_DIR, exist_ok=True)
 
 SHEETS = [
     ('메인',     'main.csv'),
     ('최저기준', 'min.csv'),
-    ('종합전형', 'jong.csv'),
+    ('전형방법', 'jong.csv'),  # 시트명 '종합전형' → '전형방법'으로 변경됨
 ]
 
 wb = openpyxl.load_workbook(SRC, data_only=True, read_only=True)
