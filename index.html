@@ -523,7 +523,7 @@ tbody td.r{text-align:right;font-family:var(--mono);}
     </div>
     <div class="ig" style="margin-top:8px">
       <div class="fl">대학, 학과 검색</div>
-      <input class="fi" id="kw" type="text" placeholder="예: 한양대, 경영, 컴퓨터"/>
+      <input class="fi" id="kw" type="text" placeholder="예: 한양대, 경영, 컴퓨터" onkeydown="if(event.key==='Enter')doSearch()"/>
     </div>
     <button class="btn-go" id="btnGo" onclick="doSearch()" disabled>추천 학교·학과 검색</button>
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);text-align:center;line-height:1.6">
@@ -835,6 +835,7 @@ const SHEET_JONG_URL = 'data/jong.csv';
 
 let minData  = [];
 let minMap   = new Map(); // key: `대학명|모집단위` → [{type,name,min,note,area}]
+let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항목 배열 (스마트 매칭용)
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
@@ -968,6 +969,7 @@ function lookupJong(univ, typeName) {
 
 function buildMinMap() {
   minMap.clear();
+  minMapByUniv.clear();
   if (!minData.length) return;
   const headers = Object.keys(minData[0]);
   const col = (...kws) => headers.find(h => kws.some(kw => h.includes(kw))) || '';
@@ -981,17 +983,60 @@ function buildMinMap() {
   for (const row of minData) {
     const univ = (row[univCol]||'').trim();
     const dept = (row[deptCol]||'').trim();
-    if (!univ || !dept) continue;
-    const key = `${univ}|${dept}`;
-    if (!minMap.has(key)) minMap.set(key, []);
-    minMap.get(key).push({
+    if (!univ) continue;
+    const item = {
+      dept,                              // 모집단위 그룹 표기 (전 모집단위 / 의학과 제외 등)
       type: (row[typeCol]||'').trim(),
       name: (row[nameCol]||'').trim(),
       min:  (row[minCol] ||'').trim(),
       note: (row[noteCol]||'').trim(),
       area: (row[areaCol]||'').trim(),
-    });
+    };
+    // 기존 정확매칭 맵 (호환 유지)
+    const key = `${univ}|${dept}`;
+    if (!minMap.has(key)) minMap.set(key, []);
+    minMap.get(key).push(item);
+    // 대학명 정규화 그룹 맵 (스마트 매칭용)
+    const uk = normUnivKey(univ);
+    if (!minMapByUniv.has(uk)) minMapByUniv.set(uk, []);
+    minMapByUniv.get(uk).push(item);
   }
+}
+
+// 최저기준 모집단위 그룹 표기가 특정 학과(dept)/계열(series)에 적용되는지 판정
+function minApplies(minDept, dept, series) {
+  const md = (minDept||'').replace(/\s/g,'');
+  const dp = (dept||'').replace(/\s/g,'');
+  if (!md) return true;  // 모집단위 비어있으면 대학 전체 기준으로 간주
+
+  // 1) 전체 / 전 모집단위 / 일부 (→ 기본 적용, '제외' 대상만 빼냄)
+  if (/전모집단위|전체|모든모집단위|일부/.test(md)) {
+    if (md.includes('제외')) {
+      const par = md.match(/\(([^)]*)\)/);
+      const exText = (par ? par[1] : md).replace(/제외/g,'');
+      const exTokens = exText.split(/[\/,·및\)]/).map(t=>t.trim()).filter(t=>t.length>=2);
+      for (const t of exTokens) if (dp.includes(t) || t.includes(dp)) return false;
+    }
+    return true;
+  }
+
+  // 2) 계열 표기 (인문계열 / 자연계열 등)
+  if (md.includes('계열')) {
+    if (md.includes('인문')) return series==='인문' || series==='예체능' || series==='공통';
+    if (md.includes('자연')) return series==='자연' || series==='공통';
+    return true;
+  }
+
+  // 3) 특정 학과명(들) — "약학과, 의예과" 같이 나열 가능
+  const tokens = md.split(/[\/,·및]/).map(t=>t.trim()).filter(t=>t.length>=2);
+  for (const t of tokens) if (dp.includes(t) || t.includes(dp)) return true;
+  return false;
+}
+
+// 학과에 적용되는 최저기준 항목 목록 반환 (스마트 매칭)
+function lookupMin(univ, dept, series) {
+  const items = minMapByUniv.get(normUnivKey(univ)) || [];
+  return items.filter(m => m.min && minApplies(m.dept, dept, series));
 }
 
 function finishLoad() {
@@ -1456,9 +1501,9 @@ function render() {
       </div>`;
     };
 
-    const minItems = minMap.get(`${s.univ}|${s.dept}`) || [];
+    const minItems = lookupMin(s.univ, s.dept, s.series);
     const minCellHtml = minItems.length
-      ? minItems.filter(m=>m.min).map(m=>`<div class="mc-item"><span class="mc-type">${m.type||m.name}</span><span class="mc-min">${m.min}</span>${m.note?`<div class="mc-note">${m.note}</div>`:''}</div>`).join('')
+      ? minItems.map(m=>`<div class="mc-item"><span class="mc-type">${m.type||m.name||'최저'}</span><span class="mc-min">${m.min}</span>${m.dept?`<div class="mc-note">${m.dept}</div>`:''}${m.note?`<div class="mc-note">${m.note}</div>`:''}</div>`).join('')
       : `<span style="color:var(--text-3);font-size:10px">—</span>`;
 
     return `<tr class="school-row" onclick="showDetail(${i}, ${JSON.stringify(sort).replace(/"/g,'&quot;')})">
@@ -1751,12 +1796,13 @@ function showDetail(i) {
     </div>
     ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : ''}
     ${(() => {
-      const minItems = (minMap.get(`${s.univ}|${s.dept}`) || []).filter(m => m.min);
+      const minItems = lookupMin(s.univ, s.dept, s.series);
       if (!minItems.length) return '';
       const rows = minItems.map(m => `
         <div class="mc-item" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 4px;">
           <span class="mc-type">${m.type || m.name || '최저'}</span>
           <span style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text)">${m.min}</span>
+          ${m.dept ? `<span style="font-size:10px;color:var(--accent);font-weight:600">대상: ${m.dept}</span>` : ''}
           ${m.area ? `<span style="font-size:10px;color:var(--text-3)">반영: ${m.area}</span>` : ''}
           ${m.note ? `<span style="font-size:10px;color:var(--text-3);width:100%">※ ${m.note}</span>` : ''}
         </div>`).join('');
