@@ -308,6 +308,13 @@ tbody td.r{text-align:right;font-family:var(--mono);}
 .chart-leg{display:flex;gap:10px;flex-wrap:wrap;margin:0 8px 4px;font-size:10px;color:var(--text-2);align-items:center;}
 .chart-leg .cl{display:inline-flex;align-items:center;gap:3px;}
 .chart-leg .cd{width:9px;height:9px;border-radius:50%;display:inline-block;}
+/* 메모(피드백) */
+.memo-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.memo-box{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 26px;width:440px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+.memo-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:18px;color:var(--text-3);cursor:pointer;}
+.memo-btn{border:none;border-radius:7px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.memo-btn-g{background:var(--accent);color:#fff;}
+.memo-btn-n{background:var(--bg);color:var(--text-2);border:1px solid var(--border);}
 </style>
 </head>
 <body>
@@ -365,8 +372,26 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       <div class="dot loading" id="statusDot"></div>
       <span id="statusTxt">데이터 로딩 중...</span>
     </div>
+    <button class="admin-btn" onclick="openMemo()">✉ 메모</button>
     <button class="admin-btn" onclick="toggleAdmin()">⚙ 관리자</button>
     <button class="admin-btn" id="logoutBtn" onclick="doLogout()" style="display:none;border-color:#f87171;color:#f87171;">로그아웃</button>
+  </div>
+</div>
+
+<!-- 메모(피드백) 작성 오버레이 -->
+<div class="memo-bg" id="memoBg" style="display:none" onclick="if(event.target===this)closeMemo()">
+  <div class="memo-box">
+    <button class="memo-close" onclick="closeMemo()">✕</button>
+    <h3 style="font-size:16px;margin-bottom:4px;">관리자에게 메모 보내기</h3>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:12px;line-height:1.5;">
+      건의·문의·오류 제보 등을 자유롭게 남겨주세요.<br>작성자: <strong id="memoFrom" style="color:var(--accent)">—</strong>
+    </p>
+    <textarea id="memoText" placeholder="내용을 입력하세요" style="width:100%;height:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:var(--font);resize:vertical;outline:none;"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+      <button class="memo-btn memo-btn-n" onclick="closeMemo()">취소</button>
+      <button class="memo-btn memo-btn-g" id="memoSendBtn" onclick="sendMemo()">보내기</button>
+    </div>
+    <div id="memoMsg" style="font-size:12px;color:var(--dn);margin-top:8px;min-height:16px;text-align:right;"></div>
   </div>
 </div>
 
@@ -403,6 +428,12 @@ tbody td.r{text-align:right;font-family:var(--mono);}
       <input class="a-input" style="width:150px" id="pw2" type="password" placeholder="확인"/>
       <button class="abtn abtn-n" onclick="changePw()">변경</button>
     </div>
+    <hr class="a-div">
+    <h4>받은 메모 <span id="memoBadge" style="display:none;background:#dc2626;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle;">0</span></h4>
+    <div class="a-row" style="gap:4px;">
+      <button class="abtn abtn-n" onclick="loadMemoList()" style="margin-left:auto;">↻ 새로고침</button>
+    </div>
+    <div id="memoListAdmin" style="margin-top:8px;max-height:240px;overflow-y:auto;border:1px solid #2a2a2a;border-radius:6px;padding:4px;"></div>
     <hr class="a-div">
     <h4>접속 신청 관리 <span id="reqBadge" style="display:none;background:#dc2626;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle;">0</span></h4>
     <div class="a-row" style="gap:4px;">
@@ -683,6 +714,38 @@ function doLogout() {
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginErr').textContent = '';
   showLoginForm();
+}
+
+// ── 관리자에게 메모 보내기 ──
+function openMemo() {
+  if (!currentUser) { showToast('로그인 후 이용할 수 있습니다'); return; }
+  document.getElementById('memoFrom').textContent = currentUser;
+  document.getElementById('memoText').value = '';
+  document.getElementById('memoMsg').textContent = '';
+  document.getElementById('memoBg').style.display = 'flex';
+  document.getElementById('memoText').focus();
+}
+function closeMemo() { document.getElementById('memoBg').style.display = 'none'; }
+async function sendMemo() {
+  const text = document.getElementById('memoText').value.trim();
+  const msg  = document.getElementById('memoMsg');
+  const btn  = document.getElementById('memoSendBtn');
+  if (!text) { msg.textContent = '내용을 입력하세요.'; return; }
+  btn.disabled = true; btn.textContent = '전송 중...';
+  try {
+    await db.collection('messages').add({
+      email: currentUser || '(미로그인)',
+      text,
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      ua: navigator.userAgent.substring(0, 100),
+    });
+    closeMemo();
+    showToast('✓ 메모를 전달했습니다. 감사합니다!');
+  } catch(e) {
+    msg.textContent = '전송 실패: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '보내기';
 }
 
 // 로그인 ↔ 신청 폼 전환
@@ -1926,6 +1989,7 @@ function checkPw(){
     document.getElementById('adminContent').style.display='block';
     loadEmailList();
     loadRequestList();
+    loadMemoList();
   } else {
     showToast('비밀번호가 틀렸습니다');
     document.getElementById('adminPw').value='';
@@ -2146,6 +2210,74 @@ async function deleteRequest(email) {
     await db.collection('access_requests').doc(email).delete();
     showToast(`✓ ${email} 기록 삭제`);
     loadRequestList();
+  } catch(e) {
+    showToast('삭제 실패: ' + e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// 받은 메모 관리
+// ════════════════════════════════════════════════════
+async function loadMemoList() {
+  const list  = document.getElementById('memoListAdmin');
+  const badge = document.getElementById('memoBadge');
+  list.innerHTML = '<div style="color:#666;font-size:11px;padding:6px">불러오는 중...</div>';
+  try {
+    const snap = await db.collection('messages').get();
+    const docs = snap.docs.sort((a,b) => {
+      const ta = (a.data().createdAt && a.data().createdAt.seconds) || 0;
+      const tb = (b.data().createdAt && b.data().createdAt.seconds) || 0;
+      return tb - ta;
+    });
+    const unread = docs.filter(d => !d.data().read).length;
+    if (unread > 0) { badge.style.display='inline-block'; badge.textContent = unread; }
+    else            { badge.style.display='none'; }
+    if (!docs.length) {
+      list.innerHTML = '<div style="color:#666;font-size:11px;padding:6px">받은 메모 없음</div>';
+      return;
+    }
+    list.innerHTML = docs.map(doc => {
+      const d = doc.data() || {};
+      const when = d.createdAt && d.createdAt.seconds
+        ? new Date(d.createdAt.seconds * 1000).toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+        : '-';
+      const isUnread = !d.read;
+      return `
+        <div style="padding:8px;border-bottom:1px solid #2a2a2a;${isUnread?'background:#1e293b;':''}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+            <div style="font-size:11px;">
+              ${isUnread?'<span style="color:#f87171;font-weight:700;margin-right:4px;">●</span>':''}
+              <span style="font-family:var(--mono);color:#ddd;">${escapeHtml(d.email||'-')}</span>
+              <span style="color:#666;margin-left:6px;">${when}</span>
+            </div>
+            <div style="flex-shrink:0;">
+              <button onclick="toggleMemoRead('${doc.id}', ${d.read?'true':'false'})" style="background:#374151;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;margin-right:4px;">${isUnread?'읽음':'안읽음'}</button>
+              <button onclick="deleteMemo('${doc.id}')" style="background:#7f1d1d;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;">삭제</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#eee;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${escapeHtml(d.text||'')}</div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="color:#f87171;font-size:11px;padding:6px">로드 실패: ${e.message}</div>`;
+  }
+}
+
+async function toggleMemoRead(id, read) {
+  try {
+    await db.collection('messages').doc(id).update({ read: !read });
+    loadMemoList();
+  } catch(e) {
+    showToast('처리 실패: ' + e.message);
+  }
+}
+
+async function deleteMemo(id) {
+  if (!confirm('이 메모를 삭제하시겠습니까?')) return;
+  try {
+    await db.collection('messages').doc(id).delete();
+    showToast('✓ 메모 삭제');
+    loadMemoList();
   } catch(e) {
     showToast('삭제 실패: ' + e.message);
   }
