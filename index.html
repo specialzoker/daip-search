@@ -1685,21 +1685,19 @@ function showDetail(i) {
       return `<div class="dcard-line">충원 <span>${chung}명</span>${pct}</div>`;
     };
     let methodTxt = '';
-    if (label==='교과전형')      methodTxt = s.gyoMethod || '';
+    // 전형방법 시트(jong.csv)에서 전형명별 방법을 모음 — 교과·종합 공통
+    const collectMethods = (entries) => (entries||[]).map(e=>{
+      const info = lookupJong(s.univ, e.name);
+      if (!info) return '';
+      const segs = [];
+      if (info.method)    segs.push(info.method);
+      if (info.intMethod) segs.push('면접방법: ' + info.intMethod);
+      if (!segs.length) return '';
+      return ((entries.length > 1) ? `[${e.name}]\n` : '') + segs.join('\n');
+    }).filter(Boolean).join('\n\n');
+    if (label==='교과전형')      methodTxt = collectMethods(s.gyo)  || (s.gyoMethod || '');
+    else if (label==='종합전형') methodTxt = collectMethods(s.jong) || (s.jongMethod || '');
     else if (label==='정시전형') methodTxt = s.suMethod || '';
-    else if (label==='종합전형') {
-      // 종합은 jong.csv(종합전형 시트)의 전형방법을 전형명별로 모음
-      const parts = (s.jong||[]).map(j=>{
-        const info = lookupJong(s.univ, j.name);
-        if (!info) return '';
-        const segs = [];
-        if (info.method)    segs.push(info.method);
-        if (info.intMethod) segs.push('면접방법: ' + info.intMethod);
-        if (!segs.length) return '';
-        return (s.jong.length > 1 ? `[${j.name}]\n` : '') + segs.join('\n');
-      }).filter(Boolean);
-      methodTxt = parts.join('\n\n') || (s.jongMethod || '');
-    }
     const methodBlock = methodTxt
       ? `<div class="dcard-method-hint">ⓘ 전형방법</div><div class="dcard-tip">${escapeHtml(methodTxt)}</div>`
       : '';
