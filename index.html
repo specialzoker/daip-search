@@ -1083,6 +1083,14 @@ function minApplies(minDept, dept, series) {
     return true;
   }
 
+  // 1-b) "○○ 외" = ○○을 제외한 나머지 전체 (예: "의예과 외")
+  if (/외$/.test(md)) {
+    const exPart = md.replace(/외$/, '');
+    const exTokens = exPart.split(/[\/,·및]/).map(t=>t.trim()).filter(t=>t.length>=2);
+    for (const t of exTokens) if (dp.includes(t) || t.includes(dp)) return false;
+    return true;
+  }
+
   // 2) 계열 표기 (인문계열 / 자연계열 등)
   if (md.includes('계열')) {
     if (md.includes('인문')) return series==='인문' || series==='예체능' || series==='공통';
