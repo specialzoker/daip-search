@@ -1091,16 +1091,15 @@ function minApplies(minDept, dept, series) {
     return true;
   }
 
-  // 2) 계열 표기 (인문계열 / 자연계열 등)
-  if (md.includes('계열')) {
-    if (md.includes('인문')) return series==='인문' || series==='예체능' || series==='공통';
-    if (md.includes('자연')) return series==='자연' || series==='공통';
-    return true;
+  // 2) 토큰별 매칭 — 계열 키워드(인문/자연/예체능) 또는 학과명
+  //    예: "인문·자연·예술학과·캠퍼스자율전공", "미술계열", "약학과, 의예과"
+  const tokens = md.split(/[\/,·및]/).map(t => t.replace(/\([^)]*\)/g,'').trim()).filter(Boolean);
+  for (const t of tokens) {
+    if (/^인문(계열)?$/.test(t)) { if (series==='인문' || series==='공통') return true; continue; }
+    if (/^자연(계열)?$/.test(t)) { if (series==='자연' || series==='공통') return true; continue; }
+    if (/^(미술|음악|체육|예술|예능|예체능)(계열)?$/.test(t)) { if (series==='예체능') return true; continue; }
+    if (t.length >= 2 && (dp.includes(t) || t.includes(dp))) return true;
   }
-
-  // 3) 특정 학과명(들) — "약학과, 의예과" 같이 나열 가능
-  const tokens = md.split(/[\/,·및]/).map(t=>t.trim()).filter(t=>t.length>=2);
-  for (const t of tokens) if (dp.includes(t) || t.includes(dp)) return true;
   return false;
 }
 
