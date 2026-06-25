@@ -82,6 +82,61 @@ for sheet_name, out_name in SHEETS:
             rows = newrows
             if removed:
                 print(f'    └ 중복 모집단위 {removed}건 정리됨')
+
+            # 정시 입결 머지 (data/jeongsi.csv — 어디가 정시 백분위)
+            jpath = os.path.join(DATA_DIR, 'jeongsi.csv')
+            if os.path.exists(jpath):
+                import statistics
+                with open(jpath, encoding='utf-8') as jf:
+                    jrows = list(csv.DictReader(jf))
+                jnu = lambda s: re.sub(r'\s','',str(s or '')).replace('대학교','대').replace('학교','')
+                jnd = lambda s: re.sub(r'\s','',str(s or ''))
+                SMAP = {'인문・사회계열':'인문','인문·사회계열':'인문','공학계열':'자연',
+                        '자연과학계열':'자연','의학계열':'자연','예체능계열':'예체능'}
+                def fnum(x):
+                    try: return float(str(x).replace(',',''))
+                    except: return None
+                # 정확매칭: (대학,모집단위) → 대표행 (일반전형 우선, 백분위 최대)
+                exact = {}
+                for jr in jrows:
+                    bp = fnum(jr.get('백분위'))
+                    if bp is None: continue
+                    k = (jnu(jr['대학명']), jnd(jr['모집단위']))
+                    rank = (1 if '일반' in jr.get('전형','') else 0, bp)
+                    if k not in exact or rank > exact[k][0]:
+                        exact[k] = (rank, jr)
+                # 계열폴백: (대학,계열) → 백분위 중앙값 (의학계열 제외, 일반전형만)
+                pool = {}
+                for jr in jrows:
+                    if str(jr.get('계열','')).strip() == '의학계열': continue
+                    if '일반' not in jr.get('전형',''): continue
+                    g = SMAP.get(str(jr.get('계열','')).strip(), '')
+                    bp = fnum(jr.get('백분위'))
+                    if not g or bp is None: continue
+                    pool.setdefault((jnu(jr['대학명']), g), []).append(bp)
+                fb = {k: statistics.median(v) for k, v in pool.items()}
+                pct_i  = hdr.index('정시백분위')  if '정시백분위'  in hdr else None
+                chu_i  = hdr.index('정시/충원')   if '정시/충원'   in hdr else None
+                cap_i  = hdr.index('모집인원_정시') if '모집인원_정시' in hdr else None
+                comp_i = hdr.index('경쟁률_정시')  if '경쟁률_정시'  in hdr else None
+                ser_i  = hdr.index('계열')        if '계열'        in hdr else None
+                maxi = max(x for x in [pct_i,chu_i,cap_i,comp_i,ser_i] if x is not None)
+                ce = cf = 0
+                for r in rows[1:]:
+                    while len(r) <= maxi: r.append('')
+                    k = (jnu(r[univ_i]), jnd(r[dept_i]))
+                    if k in exact:
+                        jr = exact[k][1]
+                        if pct_i  is not None: r[pct_i] = str(jr['백분위'])
+                        if chu_i  is not None and str(jr.get('충원','')).strip():   r[chu_i]  = str(jr['충원'])
+                        if cap_i  is not None and str(jr.get('모집인원','')).strip(): r[cap_i]  = str(jr['모집인원'])
+                        if comp_i is not None and str(jr.get('경쟁률','')).strip():   r[comp_i] = str(jr['경쟁률'])
+                        ce += 1
+                    elif pct_i is not None and ser_i is not None and not r[pct_i].strip():
+                        fk = (jnu(r[univ_i]), r[ser_i].strip())
+                        if fk in fb:
+                            r[pct_i] = str(round(fb[fk], 1)); cf += 1
+                print(f'    └ 정시 머지: 정확 {ce}건, 계열폴백 {cf}건')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)
