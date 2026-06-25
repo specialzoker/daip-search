@@ -676,6 +676,7 @@ async function doLogin() {
         }
       } catch(_) {}
       err.innerHTML = '접근 권한이 없습니다.' + extraMsg;
+      localStorage.removeItem('snavi_user');   // 권한 없으면 자동 로그인 해제
       btn.disabled = false; btn.textContent = '접속하기';
       return;
     }
@@ -696,6 +697,7 @@ async function doLogin() {
 
   // 로그인 완료
   currentUser = email;
+  localStorage.setItem('snavi_user', email);   // 다음 접속 시 자동 로그인
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('logoutBtn').style.display   = 'inline-block';
   document.getElementById('logoutBtn').title = email;
@@ -709,6 +711,7 @@ async function doLogin() {
 function doLogout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
   currentUser = null;
+  localStorage.removeItem('snavi_user');   // 자동 로그인 해제
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('logoutBtn').style.display   = 'none';
   document.getElementById('loginEmail').value = '';
@@ -821,6 +824,13 @@ async function submitAccessRequest() {
 
 // 페이지 로드 시 이메일 목록 미리 로드
 loadAllowedEmails();
+
+// 저장된 계정이 있으면 자동 로그인 (로그아웃 전까지 유지)
+const savedUser = localStorage.getItem('snavi_user');
+if (savedUser) {
+  document.getElementById('loginEmail').value = savedUser;
+  doLogin();
+}
 
 // ════════════════════════════════════════════════════
 // CONFIG
