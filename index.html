@@ -1573,7 +1573,7 @@ function render() {
 
     const minItems = lookupMin(s.univ, s.dept, s.series);
     const minCellHtml = minItems.length
-      ? minItems.map(m=>`<div class="mc-item"><span class="mc-type">${m.type||m.name||'최저'}</span><span class="mc-min">${m.min}</span>${m.dept?`<div class="mc-note">${m.dept}</div>`:''}${m.note?`<div class="mc-note">${m.note}</div>`:''}</div>`).join('')
+      ? minItems.map(m=>`<div class="mc-item"><span class="mc-type">${m.type||'최저'}</span>${(m.name&&m.name!==m.type)?`<span style="font-size:10px;color:var(--text-2);margin-left:3px">${m.name}</span>`:''} <span class="mc-min">${m.min}</span>${m.dept?`<div class="mc-note">${m.dept}</div>`:''}${m.note?`<div class="mc-note">${m.note}</div>`:''}</div>`).join('')
       : `<span style="color:var(--text-3);font-size:10px">—</span>`;
 
     return `<tr class="school-row" onclick="showDetail(${i}, ${JSON.stringify(sort).replace(/"/g,'&quot;')})">
@@ -1868,7 +1868,8 @@ function showDetail(i) {
       if (!minItems.length) return '';
       const rows = minItems.map(m => `
         <div class="mc-item" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 4px;">
-          <span class="mc-type">${m.type || m.name || '최저'}</span>
+          <span class="mc-type">${m.type || '최저'}</span>
+          ${(m.name && m.name !== m.type) ? `<span style="font-size:11px;font-weight:600;color:var(--text-2)">${m.name}</span>` : ''}
           <span style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text)">${m.min}</span>
           ${m.dept ? `<span style="font-size:10px;color:var(--accent);font-weight:600">대상: ${m.dept}</span>` : ''}
           ${m.area ? `<span style="font-size:10px;color:var(--text-3)">반영: ${m.area}</span>` : ''}
