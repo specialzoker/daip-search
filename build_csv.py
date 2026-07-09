@@ -137,6 +137,43 @@ for sheet_name, out_name in SHEETS:
                         if fk in fb:
                             r[pct_i] = str(round(fb[fk], 1)); cf += 1
                 print(f'    └ 정시 머지: 정확 {ce}건, 계열폴백 {cf}건')
+
+            # 나비 데이터 머지 (data/navi.csv) — 5등급 컷 / 2027 모집단위 변경 / 정시 보완
+            npath = os.path.join(DATA_DIR, 'navi.csv')
+            if os.path.exists(npath):
+                nnu = lambda s: re.sub(r'\s','',str(s or '')).replace('대학교','대').replace('학교','')
+                nnd = lambda s: re.sub(r'\s','',str(s or ''))
+                with open(npath, encoding='utf-8') as nf:
+                    nmap = {(nnu(r['대학명']), nnd(r['모집단위'])): r for r in csv.DictReader(nf)}
+                cut5 = [('교과1_50_5','교과1/50%(5등급)'),('교과1_70_5','교과1/70%(5등급)'),
+                        ('교과2_50_5','교과2/50%(5등급)'),('교과2_70_5','교과2/70%(5등급)'),
+                        ('교과3_50_5','교과3/50%(5등급)'),('교과3_70_5','교과3/70%(5등급)'),
+                        ('종합1_50_5','종합1/50%(5등급)'),('종합1_70_5','종합1/70%(5등급)'),
+                        ('종합2_50_5','종합2/50%(5등급)'),('종합2_70_5','종합2/70%(5등급)')]
+                for _, dst in cut5:
+                    if dst not in hdr: hdr.append(dst)
+                if '2027모집단위' not in hdr: hdr.append('2027모집단위')
+                colidx = {dst: hdr.index(dst) for _, dst in cut5}
+                d27_i  = hdr.index('2027모집단위')
+                pct_i2 = hdr.index('정시백분위')       if '정시백분위'       in hdr else None
+                eng_i2 = hdr.index('영어한국사')       if '영어한국사'       in hdr else None
+                nc5 = nc27 = 0
+                for r in rows[1:]:
+                    while len(r) < len(hdr): r.append('')
+                    nr = nmap.get((nnu(r[univ_i]), nnd(r[dept_i])))
+                    if not nr: continue
+                    got5 = False
+                    for src, dst in cut5:
+                        if nr.get(src,''):
+                            r[colidx[dst]] = nr[src]; got5 = True
+                    if got5: nc5 += 1
+                    if nr.get('모집단위2027','') and nr['모집단위2027'] != nr['모집단위']:
+                        r[d27_i] = nr['모집단위2027']; nc27 += 1
+                    if pct_i2 is not None and not r[pct_i2].strip() and nr.get('정시백분위',''):
+                        r[pct_i2] = nr['정시백분위']
+                    if eng_i2 is not None and not r[eng_i2].strip() and nr.get('정시영어한국사',''):
+                        r[eng_i2] = nr['정시영어한국사']
+                print(f'    └ 나비 머지: 5등급컷 {nc5}건, 2027변경 {nc27}건')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)

@@ -853,6 +853,7 @@ const C = {
   g1c:'교과1/충원', g2c:'교과2/충원', g3c:'교과3/충원',
   j1c:'종합1/충원', j2c:'종합2/충원', suc:'정시/충원',
   gyoCap:'모집인원_교과', jongCap:'모집인원_종합', suCap:'모집인원_정시',
+  dept2027:'2027모집단위',
 };
 
 // 판정 임계값
@@ -1317,6 +1318,7 @@ function doSearch() {
         kwon, region:(row[C.region]||'').trim(), sub:(row[C.sub]||'').trim(),
         univ, dept, series,
         dept25: (row[C.dept25]||'').trim(),
+        dept2027: (row[C.dept2027]||'').trim(),
         chg_type:(row[C.chg_type]||'').trim(), chg_dept:(row[C.chg_dept]||'').trim(),
         gyoMethod:(row[C.gyoMethod]||'').trim(), jongMethod:(row[C.jongMethod]||'').trim(), suMethod:(row[C.suMethod]||'').trim(),
         gyoCap:(row[C.gyoCap]||'').trim(), jongCap:(row[C.jongCap]||'').trim(), suCap:(row[C.suCap]||'').trim(),
@@ -1593,7 +1595,7 @@ function render() {
       <td style="font-weight:500">${(url=>url
         ? `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--text-3);" onclick="event.stopPropagation()" title="입학처 바로가기">${s.univ} <span style="font-size:9px;color:var(--text-3)">↗</span></a>`
         : s.univ)(getUnivUrl(s.univ))}</td>
-      <td>${s.dept}${s.chg_dept&&s.chg_dept!=='유지'?`<span style="font-size:9px;color:var(--mid);margin-left:4px">변경</span>`:''}</td>
+      <td>${s.dept}${s.chg_dept&&s.chg_dept!=='유지'?`<span style="font-size:9px;color:var(--mid);margin-left:4px">변경</span>`:''}${s.dept2027?`<div style="font-size:9px;color:var(--dn);margin-top:2px;font-weight:600">2027 → ${s.dept2027}</div>`:''}</td>
       <td style="font-size:10px;color:var(--text-3)">${s.series}</td>
       <td>
         <div class="verdict-cells">
@@ -1949,6 +1951,7 @@ function showDetail(i) {
       <h4>2025 → 2026 변경사항</h4>
       <div class="m-row"><span class="m-k">2025 모집단위</span><span class="m-v">${s.dept25||'-'}</span></div>
       <div class="m-row"><span class="m-k">2026 모집단위</span><span class="m-v">${s.dept}</span></div>
+      ${s.dept2027?`<div class="m-row"><span class="m-k">2027 모집단위</span><span class="m-v" style="color:var(--dn);font-weight:700">${s.dept2027} <span style="font-size:10px;font-weight:400">(올해 모집·명칭 변경)</span></span></div>`:''}
       <div class="m-row"><span class="m-k">전형 변경</span><span class="m-v">${(s.chg_type||'-').replace('유지','변경없음')}</span></div>
       <div class="m-row"><span class="m-k">모집단위 변경</span><span class="m-v">${(s.chg_dept||'-').replace('유지','변경없음')}</span></div>
     </div>`;
