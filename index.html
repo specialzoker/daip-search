@@ -574,7 +574,7 @@ tbody td.r{text-align:right;font-family:var(--mono);}
           <div class="leg"><span class="badge b-up">가능</span></div>
           <div class="leg"><span class="badge b-mid">경계</span></div>
           <div class="leg"><span class="badge b-dn">위험</span></div>
-          <div class="leg"><span class="badge b-stop">그러지마</span></div>
+          <div class="leg"><span class="badge b-stop">안돼안돼ㅠ</span></div>
           <span style="font-size:11px;color:var(--text-3);margin-left:6px">전형 셀:</span>
           <div class="leg" style="font-size:11px;color:var(--text-3)">교과 · 종합 · 정시 순서</div>
         </div>
@@ -1448,7 +1448,7 @@ function doSearch() {
                       : selVerdicts.includes('가능')?'가능'
                       : selVerdicts.includes('경계')?'경계'
                       : selVerdicts.includes('위험')?'위험'
-                      : selVerdicts.length?'그러지마':null;
+                      : selVerdicts.length?'안돼안돼ㅠ':null;
 
     // 판정 다중 선택 필터 (선택된 전형 중 하나라도 사용자 선택 판정과 일치)
     if (!fVerdict.has('all')) {
@@ -1518,16 +1518,16 @@ function vGrade(d) {
   if (d <= THR.grade.safe)   return '가능';
   if (d <= THR.grade.border) return '경계';
   if (d <= THR.grade.warn)   return '위험';
-  return '그러지마';
+  return '안돼안돼ㅠ';
 }
 function vPct(d) {
   if (d >= THR.pct.stable) return '안정';
   if (d >= THR.pct.safe)   return '가능';
   if (d >= THR.pct.border) return '경계';
   if (d >= THR.pct.warn)   return '위험';
-  return '그러지마';
+  return '안돼안돼ㅠ';
 }
-function verdictOrder(v){ return v==='안정'?0:v==='가능'?1:v==='경계'?2:v==='위험'?3:v==='그러지마'?4:5; }
+function verdictOrder(v){ return v==='안정'?0:v==='가능'?1:v==='경계'?2:v==='위험'?3:v==='안돼안돼ㅠ'?4:5; }
 
 // diff → "여유 X.XX단위" / "부족 X.XX단위"
 // isGrade=true: diff 음수=유리(여유) / isGrade=false(정시): diff 양수=유리(여유)
@@ -1566,7 +1566,7 @@ function render() {
 
   if (viewMode === 'chart') { renderChart(data); return; }
 
-  const bc={'안정':'b-stable','가능':'b-up','경계':'b-mid','위험':'b-dn','그러지마':'b-stop'};
+  const bc={'안정':'b-stable','가능':'b-up','경계':'b-mid','위험':'b-dn','안돼안돼ㅠ':'b-stop'};
 
   const rows = data.map((s,i)=>{
     // 전형 판정 셀 3개 (교과 대표 / 종합 대표 / 정시)
@@ -1576,7 +1576,7 @@ function render() {
 
     const cell = (label, data, isGrade) => {
       if (!data) return `<div class="vc vc-none"><div class="vc-type">${label}</div><div class="vc-label">—</div><div class="vc-diff" style="color:var(--text-3);font-size:9px">데이터없음</div></div>`;
-      const cls = {'안정':'vc-stable','가능':'vc-up','경계':'vc-mid','위험':'vc-dn','그러지마':'vc-stop'}[data.verdict]||'vc-none';
+      const cls = {'안정':'vc-stable','가능':'vc-up','경계':'vc-mid','위험':'vc-dn','안돼안돼ㅠ':'vc-stop'}[data.verdict]||'vc-none';
       const unit = isGrade ? '등급' : '%';
       const fbTag = (!isGrade && data.isFallback)
         ? `<div style="font-size:8px;opacity:.7;margin-top:1px">자율전공 기준</div>` : '';
@@ -1643,7 +1643,7 @@ function setView(m) {
   render();
 }
 
-const CHART_COLOR = {'안정':'#1d4ed8','가능':'#1a6b3c','경계':'#b45309','위험':'#be123c','그러지마':'#9ca3af'};
+const CHART_COLOR = {'안정':'#1d4ed8','가능':'#1a6b3c','경계':'#b45309','위험':'#be123c','안돼안돼ㅠ':'#9ca3af'};
 
 function renderChart(data) {
   // 내 점수 기준선: 교과/종합은 환산내신 중앙값, 정시는 참고용 수능평균
@@ -1659,7 +1659,7 @@ function renderChart(data) {
   ];
 
   const legend = `<div class="chart-leg">
-    ${['안정','가능','경계','위험','그러지마'].map(v=>`<span class="cl"><span class="cd" style="background:${CHART_COLOR[v]}"></span>${v}</span>`).join('')}
+    ${['안정','가능','경계','위험','안돼안돼ㅠ'].map(v=>`<span class="cl"><span class="cd" style="background:${CHART_COLOR[v]}"></span>${v}</span>`).join('')}
     <span class="cl" style="margin-left:6px"><svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="#111" stroke-width="1.5" stroke-dasharray="4 3"/></svg> 내 점수</span>
   </div>`;
 
@@ -1758,7 +1758,7 @@ function showDetail(i) {
   document.getElementById('mTitle').textContent = `${s.univ} · ${s.dept}`;
   document.getElementById('mSub').textContent   = `${s.series} · ${s.kwon} ${s.region} ${s.sub}`;
 
-  const dcls={'안정':'dc-stable','가능':'dc-up','경계':'dc-mid','위험':'dc-dn','그러지마':'dc-stop'};
+  const dcls={'안정':'dc-stable','가능':'dc-up','경계':'dc-mid','위험':'dc-dn','안돼안돼ㅠ':'dc-stop'};
   const naesinRaw = n(document.getElementById('naesin').value);
   const naesin = s.naesinEff != null ? s.naesinEff : naesinRaw;
 
@@ -1875,7 +1875,18 @@ function showDetail(i) {
   }).filter(Boolean);
   const jongInfoHtml = jongInfoBlocks.length ? `<div class="jong-info-grid">${jongInfoBlocks.join('')}</div>` : '';
 
+  // 교과·종합·정시 판정이 모두 '안돼안돼ㅠ'면 밈 이미지 표시
+  const gV = s.gyo.length  ? s.gyo.reduce((a,b)=>a.diff<b.diff?a:b).verdict  : null;
+  const jV = s.jong.length ? s.jong.reduce((a,b)=>a.diff<b.diff?a:b).verdict : null;
+  const sV = s.su ? s.su.verdict : null;
+  const _vs = [gV, jV, sV].filter(Boolean);
+  const allNo = _vs.length > 0 && _vs.every(v => v === '안돼안돼ㅠ');
+  const memeImg = allNo
+    ? `<div style="margin-bottom:14px;text-align:center;"><img src="assets/anbwe.png" alt="안 돼, 안 된단 말야" style="max-width:100%;border-radius:10px;display:block;margin:0 auto;"/></div>`
+    : '';
+
   document.getElementById('mBody').innerHTML = `
+    ${memeImg}
     <div class="m-sec">
       <h4>전형별 판정</h4>
       ${cards}
