@@ -61,7 +61,11 @@ for sheet_name, out_name in SHEETS:
                 d = d.strip()
                 m = re.match(r'^\S*학부\s+(.+)$', d)   # '○○학부 △△전공' → '△△전공'
                 if m: d = m.group(1)
-                return d.replace(' ', '')
+                d = d.replace(' ', '')
+                for suf in ('학과','학부'):  # 학과↔학부 접미사 통일
+                    if d.endswith(suf) and len(d) > len(suf) + 1:
+                        return d[:-len(suf)]
+                return d
             def score(r):
                 return sum(1 for c in cut_cols if c < len(r) and r[c].strip())
             groups = {}
@@ -142,7 +146,12 @@ for sheet_name, out_name in SHEETS:
             npath = os.path.join(DATA_DIR, 'navi.csv')
             if os.path.exists(npath):
                 nnu = lambda s: re.sub(r'\s','',str(s or '')).replace('대학교','대').replace('학교','')
-                nnd = lambda s: re.sub(r'\s','',str(s or ''))
+                def nnd(s):   # 학과↔학부 접미사 통일 (전자공학과 ↔ 전자공학부)
+                    d = re.sub(r'\s','',str(s or ''))
+                    for suf in ('학과','학부'):
+                        if d.endswith(suf) and len(d) > len(suf) + 1:
+                            return d[:-len(suf)]
+                    return d
                 with open(npath, encoding='utf-8') as nf:
                     nmap = {(nnu(r['대학명']), nnd(r['모집단위'])): r for r in csv.DictReader(nf)}
                 cut5 = [('교과1_50_5','교과1/50%(5등급)'),('교과1_70_5','교과1/70%(5등급)'),
