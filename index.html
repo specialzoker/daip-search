@@ -1882,7 +1882,7 @@ function showDetail(i) {
   const _vs = [gV, jV, sV].filter(Boolean);
   const allNo = _vs.length > 0 && _vs.every(v => v === '안돼안돼ㅠ');
   const memeImg = allNo
-    ? `<div style="margin-bottom:14px;text-align:center;"><img src="assets/anbwe.png" alt="안 돼, 안 된단 말야" style="max-width:100%;border-radius:10px;display:block;margin:0 auto;"/></div>`
+    ? `<div style="margin-bottom:14px;text-align:center;"><div style="position:relative;display:inline-block;max-width:100%;"><img src="assets/anbwe.png" alt="안 돼, 안 된단 말야" style="max-width:100%;border-radius:10px;display:block;"/><span style="position:absolute;right:10px;bottom:9px;font-size:11px;color:rgba(255,255,255,.92);text-shadow:1px 1px 2px #000;font-family:sans-serif;">Idea by Tae-Jin</span></div></div>`
     : '';
 
   document.getElementById('mBody').innerHTML = `
