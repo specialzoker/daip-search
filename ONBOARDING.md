@@ -45,6 +45,10 @@ C:\Users\user\search\
      - 정확매칭(대학+모집단위) → 정시백분위·충원·모집·경쟁률 덮어쓰기
      - 계열폴백(대학+계열, 빈칸만) → 백분위만 (의학계열 제외 중앙값)
      - 새 어디가 파일 오면 jeongsi.csv 재생성(컬럼: 대학명,모집단위,계열,전형,백분위,충원,모집인원,경쟁률) 후 build_csv 실행
+   - **나비 데이터**: `data/navi.csv`(나비 data 시트) → build_csv가 5등급컷·2027변경·정시코드 머지 + 신규 일반대 학과 추가(특수목적대 제외)
+   - **정시 대학별 환산**: `data/jeongsi_calc.csv`(나비 점수계산기 635개 규칙: 영어등급점수·선택영역·비율) + main '26정시코드'로
+     학생 환산 백분위 계산(calcJeongsiConv) → 정시백분위(합격선)와 비교. **영어 등급 입력 필요**. 계산 불가 시 calcSuPct 단순평균 폴백.
+     나비 갱신 시 jeongsi_calc.csv/navi.csv 재생성 필요 (원본: `C:\Users\user\Downloads\나비데이터.xlsx`)
 2. `python build_csv.py` 실행 → `data/*.csv` 생성
 3. `git add data/ && git commit -m "데이터 업데이트" && git push`
 

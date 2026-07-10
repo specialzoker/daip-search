@@ -500,6 +500,7 @@ tbody td.r{text-align:right;font-family:var(--mono);}
     <div class="su-row"><span class="su-k">수학</span><input class="su-v" id="su_mat" type="number" step="0.01" min="0" max="100" placeholder="91.20" oninput="onInput()"/><span class="su-u">%</span></div>
     <div class="su-row"><span class="su-k">탐구①</span><input class="su-v" id="su_ex1" type="number" step="0.01" min="0" max="100" placeholder="90.00" oninput="onInput()"/><span class="su-u">%</span></div>
     <div class="su-row"><span class="su-k">탐구②</span><input class="su-v" id="su_ex2" type="number" step="0.01" min="0" max="100" placeholder="89.00" oninput="onInput()"/><span class="su-u">%</span></div>
+    <div class="su-row"><span class="su-k">영어</span><input class="su-v" id="su_eng" type="number" step="1" min="1" max="9" placeholder="2" oninput="onInput()"/><span class="su-u">등급</span></div>
     <div class="avg-row"><span class="avg-k">수능 평균 (참고용)</span><span class="avg-v" id="suAvg">—</span></div>
     <div style="font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.5">실제 계산은 학교별 반영영역에 따라<br>다르게 적용됩니다</div>
 
@@ -853,7 +854,7 @@ const C = {
   g1c:'교과1/충원', g2c:'교과2/충원', g3c:'교과3/충원',
   j1c:'종합1/충원', j2c:'종합2/충원', suc:'정시/충원',
   gyoCap:'모집인원_교과', jongCap:'모집인원_종합', suCap:'모집인원_정시',
-  dept2027:'2027모집단위',
+  dept2027:'2027모집단위', su_code:'26정시코드',
   g1_70_5:'교과1/70%(5등급)', g1_50_5:'교과1/50%(5등급)',
   g2_70_5:'교과2/70%(5등급)', g2_50_5:'교과2/50%(5등급)',
   g3_70_5:'교과3/70%(5등급)', g3_50_5:'교과3/50%(5등급)',
@@ -918,6 +919,7 @@ let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항�
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
+let jeongsiCalcMap = {};  // 정시코드 → {eng:[9], area:[4], ratio:[4]} 대학별 환산 규칙
 
 async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
@@ -936,12 +938,13 @@ async function loadCsvFromStorage() {
   }
   // 최저기준·종합전형 시트는 실패해도 메인 기능에 영향 없음
   try {
-    const [resMin, resJong, resCases] = await Promise.allSettled([
-      fetch(SHEET_MIN_URL), fetch(SHEET_JONG_URL), fetch('cases.json')
+    const [resMin, resJong, resCases, resCalc] = await Promise.allSettled([
+      fetch(SHEET_MIN_URL), fetch(SHEET_JONG_URL), fetch('cases.json'), fetch('data/jeongsi_calc.csv')
     ]);
     if (resMin.status==='fulfilled' && resMin.value.ok) { minData = parseCSV(await resMin.value.text()); buildMinMap(); }
     if (resJong.status==='fulfilled' && resJong.value.ok) { jongData = parseCSV(await resJong.value.text()); buildJongMap(); }
     if (resCases.status==='fulfilled' && resCases.value.ok) { casesData = await resCases.value.json(); }
+    if (resCalc.status==='fulfilled' && resCalc.value.ok) { buildJeongsiCalc(parseCSV(await resCalc.value.text())); }
   } catch(_) {}
 }
 
@@ -1263,8 +1266,10 @@ function doSearch() {
     ex1: n(document.getElementById('su_ex1').value),
     ex2: n(document.getElementById('su_ex2').value),
   };
-  // 0~100 범위 외 값 제거
-  Object.keys(suScores).forEach(k=>{ if(suScores[k]!==null&&(suScores[k]<0||suScores[k]>100)) suScores[k]=null; });
+  // 0~100 범위 외 값 제거 (engGrade 제외 — 등급 1~9)
+  ['kor','mat','ex1','ex2'].forEach(k=>{ if(suScores[k]!==null&&(suScores[k]<0||suScores[k]>100)) suScores[k]=null; });
+  const _eg = parseInt(document.getElementById('su_eng').value);
+  suScores.engGrade = (_eg>=1 && _eg<=9) ? _eg : null;   // 정시 환산용 영어 등급
   const hasSu = Object.values(suScores).some(v=>v!==null);
   if (naesinRaw == null && !hasSu) { showToast('내신 등급 또는 수능 백분위를 입력하세요'); return; }
 
@@ -1379,11 +1384,14 @@ function doSearch() {
       const suCut = n(row[C.su_pct]);
       const area  = (row[C.su_area]||'').trim();
       if (suCut!==null) {
-        const myPct = calcSuPct(area, suScores);
+        const code = (row[C.su_code]||'').trim();
+        const conv = calcJeongsiConv(code, suScores);   // 대학별 환산 우선
+        const myPct = conv!=null ? conv : calcSuPct(area, suScores);
         if (myPct!==null) {
           const diff = myPct - suCut;
           const enghis = (row[C.su_enghis]||'').trim();
           const cand = { cut:suCut, myPct, diff, verdict:vPct(diff), area, usedArea:area,
+                         isConv: conv!=null,
                          enghis: (enghis && enghis!=='-') ? enghis : null, chung:n(row[C.suc]) };
           if (!s.su || cand.diff > s.su.diff) s.su = cand;
         }
@@ -1467,6 +1475,57 @@ function doSearch() {
   render();
 }
 
+
+// ════════════════════════════════════════════════════
+// 정시 대학별 환산 백분위 (점수계산기 규칙)
+// ════════════════════════════════════════════════════
+function buildJeongsiCalc(rows) {
+  jeongsiCalcMap = {};
+  for (const r of rows) {
+    const code = (r.code||'').trim();
+    if (!code) continue;
+    jeongsiCalcMap[code] = {
+      eng:   [1,2,3,4,5,6,7,8,9].map(i => (r['eng'+i]||'').trim()),
+      area:  [1,2,3,4].map(i => (r['area'+i]||'').trim()),
+      ratio: [1,2,3,4].map(i => parseFloat(r['ratio'+i]) || 0),
+    };
+  }
+}
+function resolveArea(area, kor, mat, eng, tam1, tam2) {
+  const base = {'국':kor,'수':mat,'영':eng,'탐(1)':tam1,'탐(2)':tam2};
+  if (area in base) return base[area];
+  const m = area.match(/^(.+?)_(\d)$/);   // "국수영_2" = 국수영 중 상위 2번째
+  if (m) {
+    const combo = m[1], nth = +m[2], pool = [];
+    if (combo.includes('국')) pool.push(kor);
+    if (combo.includes('수')) pool.push(mat);
+    if (combo.includes('영') && eng != null) pool.push(eng);
+    if (combo.includes('탐')) pool.push(tam1);
+    pool.sort((a,b)=>b-a);
+    return nth <= pool.length ? pool[nth-1] : null;
+  }
+  return null;
+}
+// 대학 환산 백분위 반환 (계산 불가 시 null → 기존 단순 계산으로 폴백)
+function calcJeongsiConv(code, sc) {
+  const rule = jeongsiCalcMap[code];
+  if (!rule) return null;
+  const kor=sc.kor, mat=sc.mat, ex1=sc.ex1, ex2=sc.ex2, eg=sc.engGrade;
+  if (kor==null || mat==null) return null;
+  const h1 = ex1!=null, h2 = ex2!=null;
+  const tam1 = (h1||h2) ? Math.max(h1?ex1:-1, h2?ex2:-1) : null;
+  const tam2 = (h1&&h2) ? (ex1+ex2)/2 : (h1?ex1 : h2?ex2 : null);
+  const engScore = (eg && rule.eng[eg-1] !== '') ? parseFloat(rule.eng[eg-1]) : null;
+  let total=0, rsum=0;
+  for (let i=0;i<4;i++) {
+    const area=rule.area[i], ratio=rule.ratio[i];
+    if (!area || !ratio) continue;
+    const v = resolveArea(area, kor, mat, engScore, tam1, tam2);
+    if (v == null) return null;   // 필요한 값 없음(예: 영어 미입력) → 폴백
+    total += v*ratio; rsum += ratio;
+  }
+  return rsum ? total/rsum : null;
+}
 
 // ════════════════════════════════════════════════════
 // 반영영역별 수능 백분위 계산
@@ -1808,6 +1867,7 @@ function showDetail(i) {
         <div class="dcard-line">내 점수 <span>${s2.myPct.toFixed(2)}%</span></div>
         <div class="dcard-diff">${fmtMargin(s2.diff, false, '%')}</div>
         ${chungLine(s2.chung)}
+        ${s2.isConv?`<div class="typename" style="margin-top:4px;color:var(--up);font-weight:600">✓ 대학 반영비율 환산 적용</div>`:''}
         ${s2.usedArea?`<div class="typename" style="margin-top:4px">반영: ${s2.usedArea}</div>`:''}
         ${s2.enghis?`<div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.06);border-radius:6px;">
           <div style="font-size:10px;opacity:.6;margin-bottom:6px;white-space:nowrap">영어/한국사 (70% 합격 기준)</div>

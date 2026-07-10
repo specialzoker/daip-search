@@ -162,8 +162,10 @@ for sheet_name, out_name in SHEETS:
                 for _, dst in cut5:
                     if dst not in hdr: hdr.append(dst)
                 if '2027모집단위' not in hdr: hdr.append('2027모집단위')
+                if '26정시코드' not in hdr: hdr.append('26정시코드')
                 colidx = {dst: hdr.index(dst) for _, dst in cut5}
                 d27_i  = hdr.index('2027모집단위')
+                code_i = hdr.index('26정시코드')
                 pct_i2 = hdr.index('정시백분위')       if '정시백분위'       in hdr else None
                 eng_i2 = hdr.index('영어한국사')       if '영어한국사'       in hdr else None
                 nc5 = nc27 = 0
@@ -178,6 +180,8 @@ for sheet_name, out_name in SHEETS:
                     if got5: nc5 += 1
                     if nr.get('모집단위2027','') and nr['모집단위2027'] != nr['모집단위']:
                         r[d27_i] = nr['모집단위2027']; nc27 += 1
+                    if nr.get('정시코드','') and not r[code_i].strip():
+                        r[code_i] = nr['정시코드']
                     if pct_i2 is not None and not r[pct_i2].strip() and nr.get('정시백분위',''):
                         r[pct_i2] = nr['정시백분위']
                     if eng_i2 is not None and not r[eng_i2].strip() and nr.get('정시영어한국사',''):
@@ -215,6 +219,8 @@ for sheet_name, out_name in SHEETS:
                             newr[hdr.index(mcol)] = v
                     if nr.get('모집단위2027','') and nr['모집단위2027'] != d and '2027모집단위' in hdr:
                         newr[hdr.index('2027모집단위')] = nr['모집단위2027']
+                    if nr.get('정시코드','') and '26정시코드' in hdr:
+                        newr[hdr.index('26정시코드')] = nr['정시코드']
                     rows.append(newr)
                     mkey.add((nnu(u), nnd(d)))
                     added += 1
