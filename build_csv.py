@@ -174,6 +174,42 @@ for sheet_name, out_name in SHEETS:
                     if eng_i2 is not None and not r[eng_i2].strip() and nr.get('정시영어한국사',''):
                         r[eng_i2] = nr['정시영어한국사']
                 print(f'    └ 나비 머지: 5등급컷 {nc5}건, 2027변경 {nc27}건')
+
+                # 나비 신규 학과 추가 (main 미매칭 + 일반대만, 특수목적대 제외)
+                mkey = set((nnu(r[univ_i]), nnd(r[dept_i])) for r in rows[1:])
+                SKIP_KW = ['사관','경찰대','신학','승가']
+                SKIP_UNIV = {'광신대','수원가톨릭대'}
+                is_special = lambda u: any(k in u for k in SKIP_KW) or u in SKIP_UNIV
+                KWON_MAP2 = {'서울권':'서울','부울경권':'경상권','대경권':'경상권','호남권':'전라권','수도권':'경인권'}
+                SERIES_MAP2 = {'의약학':'자연','무계열':'공통'}
+                col_map = {
+                    '권역':'권역','지역':'지역','세부지역':'세부지역','대학명':'대학명',
+                    '2026 수시 모집단위':'모집단위','계열':'계열',
+                    '교과1/전형':'교과1전형','교과1/50%':'교과1_50','교과1/70%':'교과1_70','교과1/50%(5등급)':'교과1_50_5','교과1/70%(5등급)':'교과1_70_5',
+                    '교과2/전형':'교과2전형','교과2/50%':'교과2_50','교과2/70%':'교과2_70','교과2/50%(5등급)':'교과2_50_5','교과2/70%(5등급)':'교과2_70_5',
+                    '교과3/전형':'교과3전형','교과3/50%':'교과3_50','교과3/70%':'교과3_70','교과3/50%(5등급)':'교과3_50_5','교과3/70%(5등급)':'교과3_70_5',
+                    '종합1/전형':'종합1전형','종합1/50%':'종합1_50','종합1/70%':'종합1_70','종합1/50%(5등급)':'종합1_50_5','종합1/70%(5등급)':'종합1_70_5',
+                    '종합2/전형':'종합2전형','종합2/50%':'종합2_50','종합2/70%':'종합2_70','종합2/50%(5등급)':'종합2_50_5','종합2/70%(5등급)':'종합2_70_5',
+                    '정시백분위':'정시백분위','영어한국사':'정시영어한국사','2025 정시 반영영역':'정시반영영역',
+                }
+                added = 0
+                for nr in nmap.values():
+                    u = nr.get('대학명',''); d = nr.get('모집단위','')
+                    if not u or not d or (nnu(u), nnd(d)) in mkey or is_special(u):
+                        continue
+                    newr = [''] * len(hdr)
+                    for mcol, ncol in col_map.items():
+                        if mcol in hdr and nr.get(ncol,''):
+                            v = nr[ncol]
+                            if mcol == '권역': v = KWON_MAP2.get(v, v)
+                            elif mcol == '계열': v = SERIES_MAP2.get(v, v)
+                            newr[hdr.index(mcol)] = v
+                    if nr.get('모집단위2027','') and nr['모집단위2027'] != d and '2027모집단위' in hdr:
+                        newr[hdr.index('2027모집단위')] = nr['모집단위2027']
+                    rows.append(newr)
+                    mkey.add((nnu(u), nnd(d)))
+                    added += 1
+                print(f'    └ 나비 신규 학과 추가: {added}건 (일반대만)')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)
