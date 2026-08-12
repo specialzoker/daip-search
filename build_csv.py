@@ -238,8 +238,10 @@ for sheet_name, out_name in SHEETS:
                         if d.endswith(suf) and len(d) > len(suf) + 1: return d[:-len(suf)]
                     return d
                 with open(cpath, encoding='utf-8') as cf:
+                    cuts_all = list(csv.DictReader(cf))
+                if True:
                     cmap, cmap2 = {}, {}
-                    for cr in csv.DictReader(cf):
+                    for cr in cuts_all:
                         try: v = float(cr['컷70'])
                         except: continue
                         if not (0.5 <= v <= 9): continue
@@ -289,6 +291,44 @@ for sheet_name, out_name in SHEETS:
                                     used.add((ti, ci)); fill_new += 1
                                     break
                 print(f'    └ 2027요강 70%컷 보완: 기존전형 컷채움 {fill_cut}건, 신규전형 {fill_new}건')
+
+                # 광역(단과대/계열) 모집 컷 → 해당 계열 학과에 참고값으로 부여
+                # 예: 중앙대 '[유형2] 자연과학대학' 1.59 → 중앙대 자연계열 학과들
+                def guess_series(name):
+                    v = re.sub(r'^\[[^\]]*\]\s*', '', str(name or ''))
+                    if re.search(r'예술|체육|음악|미술|디자인|무용|연극|공연', v): return '예체능'
+                    if re.search(r'자연|공과|공학|과학|IT|ICT|SW|AI|소프트|정보|의과|약학|간호|보건|생명|바이오|융합', v, re.I): return '자연'
+                    if re.search(r'인문|사회|경영|경제|법|사범|교육|글로벌|관광|문화|미디어|상경|어문', v): return '인문'
+                    return ''
+                broad_re = re.compile(r'(대학|계열)$')
+                broad = {}
+                for cr in cuts_all:
+                    nm = re.sub(r'^\[[^\]]*\]\s*', '', cr['모집단위'].strip())
+                    if not broad_re.search(nm): continue
+                    ser = guess_series(nm)
+                    if not ser: continue
+                    try: v = float(cr['컷70'])
+                    except: continue
+                    if not (0.5 <= v <= 9): continue
+                    broad.setdefault((cnu2(cr['대학명']), ser, cr['유형']), []).append((v, nm, cr['전형명']))
+                for col in ('교과광역/70%','교과광역/출처','종합광역/70%','종합광역/출처'):
+                    if col not in hdr: hdr.append(col)
+                bg70, bgsrc = hdr.index('교과광역/70%'), hdr.index('교과광역/출처')
+                bj70, bjsrc = hdr.index('종합광역/70%'), hdr.index('종합광역/출처')
+                ser_i2 = hdr.index('계열') if '계열' in hdr else None
+                bfill = 0
+                for r in rows[1:]:
+                    while len(r) < len(hdr): r.append('')
+                    if ser_i2 is None: break
+                    for kind, (vi, si), cols in (('교과', (bg70, bgsrc), ['교과1/70%','교과2/70%','교과3/70%']),
+                                                 ('종합', (bj70, bjsrc), ['종합1/70%','종합2/70%'])):
+                        if any(r[hdr.index(c)].strip() for c in cols if c in hdr): continue   # 학과 자체 컷 있으면 skip
+                        cand = broad.get((cnu2(r[univ_i]), r[ser_i2].strip(), kind))
+                        if not cand: continue
+                        v, nm, tname = min(cand, key=lambda x: x[0])   # 여러 개면 가장 높은 성적대(작은 값)
+                        r[vi] = f'{v}'; r[si] = f'{nm} · {tname}'
+                        bfill += 1
+                print(f'    └ 광역(단과대/계열) 참고컷 부여: {bfill}건')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)
