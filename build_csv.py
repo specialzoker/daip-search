@@ -225,6 +225,40 @@ for sheet_name, out_name in SHEETS:
                     mkey.add((nnu(u), nnd(d)))
                     added += 1
                 print(f'    └ 나비 신규 학과 추가: {added}건 (일반대만)')
+
+            # 2027 수시요강 70%컷 머지 (data/cut2027.csv) — 빈 슬롯만 채움
+            cpath = os.path.join(DATA_DIR, 'cut2027.csv')
+            if os.path.exists(cpath):
+                cnu = lambda s: re.sub(r'\s','',str(s or '')).replace('대학교','대').replace('학교','')
+                def cnd(s):
+                    d = re.sub(r'\s','',str(s or ''))
+                    for suf in ('학과','학부'):
+                        if d.endswith(suf) and len(d) > len(suf) + 1: return d[:-len(suf)]
+                    return d
+                with open(cpath, encoding='utf-8') as cf:
+                    cmap = {}
+                    for cr in csv.DictReader(cf):
+                        try: v = float(cr['컷70'])
+                        except: continue
+                        if not (0.5 <= v <= 9): continue
+                        cmap.setdefault((cnu(cr['대학명']), cnd(cr['모집단위']), cr['유형']), []).append(cr)
+                slots = {'교과': [('교과1/전형','교과1/70%'),('교과2/전형','교과2/70%'),('교과3/전형','교과3/70%')],
+                         '종합': [('종합1/전형','종합1/70%'),('종합2/전형','종합2/70%')]}
+                filled = 0
+                for r in rows[1:]:
+                    for kind, pairs in slots.items():
+                        items = cmap.get((cnu(r[univ_i]), cnd(r[dept_i]), kind))
+                        if not items: continue
+                        idxs = [(hdr.index(a), hdr.index(b)) for a, b in pairs if a in hdr and b in hdr]
+                        have = {r[ti].strip() for ti, _ in idxs if r[ti].strip()}
+                        for it in items:
+                            if it['전형명'] in have: continue          # 같은 전형 이미 있음
+                            for ti, ci in idxs:
+                                if not r[ti].strip() and not r[ci].strip():
+                                    r[ti] = it['전형명']; r[ci] = it['컷70']
+                                    have.add(it['전형명']); filled += 1
+                                    break
+                print(f'    └ 2027요강 70%컷 보완: {filled}건 (빈 슬롯만)')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)

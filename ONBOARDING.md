@@ -49,6 +49,11 @@ C:\Users\user\search\
    - **정시 대학별 환산**: `data/jeongsi_calc.csv`(나비 점수계산기 635개 규칙: 영어등급점수·선택영역·비율) + main '26정시코드'로
      학생 환산 백분위 계산(calcJeongsiConv) → 정시백분위(합격선)와 비교. **영어 등급 입력 필요**. 계산 불가 시 calcSuPct 단순평균 폴백.
      나비 갱신 시 jeongsi_calc.csv/navi.csv 재생성 필요 (원본: `C:\Users\user\Downloads\나비데이터.xlsx`)
+   - **2027 수시요강**: 원본 `C:\클라우드파일\다운 받은 파일\2027_수시모집요강_최종본_편집가능.xlsx` (16,978행)
+     - `data/schedule2027.csv` (대학+유형+전형명 단위 일정 981건) → 모달 카드에 면접·논술·1단계/최종발표 표시
+     - `data/cut2027.csv` (70%컷 12,027건) → build_csv가 main의 **빈 전형 슬롯만** 채움 (기존 값 보존)
+     - 전형명 매칭: 요강은 `학생부종합(○○전형)` 형식 → cleanTypeName+유사도 0.5, 실패 시 대학 공통일정 폴백 (커버리지 76%)
+   - **캐시**: 데이터 크게 바꾸면 index.html의 `DATA_VER` 값을 올릴 것 (브라우저가 옛 CSV를 쓰는 문제 방지)
 2. `python build_csv.py` 실행 → `data/*.csv` 생성
 3. `git add data/ && git commit -m "데이터 업데이트" && git push`
 

@@ -919,11 +919,82 @@ let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항�
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 // 데이터 갱신 시 브라우저 캐시가 옛 파일을 쓰지 않도록 URL에 버전 부여
-const DATA_VER = '20260710';
+const DATA_VER = '20260710b';
 const bust = url => url + (url.includes('?') ? '&' : '?') + 'v=' + DATA_VER;
 
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
 let jeongsiCalcMap = {};  // 정시코드 → {eng:[9], area:[4], ratio:[4]} 대학별 환산 규칙
+let schedMap = new Map(); // 정규화대학|유형 → [{name,step1,nonsul,interview,result,gosi}] 2027 전형일정
+
+// 2027 수시요강 전형일정 로드
+function buildSchedMap(rows) {
+  schedMap.clear();
+  for (const r of rows) {
+    const u = normUnivKey((r['대학명']||'').trim());
+    const kind = (r['유형']||'').trim();
+    if (!u || !kind) continue;
+    const key = u + '|' + kind;
+    if (!schedMap.has(key)) schedMap.set(key, []);
+    schedMap.get(key).push({
+      name:      (r['전형명']||'').trim(),
+      step1:     (r['1단계발표']||'').trim(),
+      nonsul:    (r['논술일정']||'').trim(),
+      interview: (r['면접일정']||'').trim(),
+      result:    (r['합격발표']||'').trim(),
+      gosi:      (r['고사시기']||'').trim(),
+    });
+  }
+}
+// 요강 전형명 정규화 — "학생부종합(광운참빛인재전형Ⅱ-서류형)" → "광운참빛인재Ⅱ서류"
+function cleanTypeName(s) {
+  let v = String(s||'');
+  const m = v.match(/\(([^)]*)\)\s*$/);
+  if (m && m[1].length >= 2) v = m[1];
+  v = v.replace(/학생부종합|학생부교과|논술위주|논술|전형|형$/g, '');
+  return v.replace(/[^0-9A-Za-z가-힣]/g, '');
+}
+function typeSim(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.includes(b) || b.includes(a)) return 0.9;
+  const [sh, lo] = a.length <= b.length ? [a,b] : [b,a];
+  const grams = [];
+  for (let i=0; i<sh.length-1; i++) grams.push(sh.slice(i,i+2));
+  if (!grams.length) grams.push(sh);
+  return grams.filter(g => lo.includes(g)).length / grams.length;
+}
+// 대학+유형+전형명으로 일정 찾기 (이름 유사도 → 대학 공통 일정 폴백)
+function lookupSched(univ, kind, typeName) {
+  let list = schedMap.get(normUnivKey(univ) + '|' + kind);
+  if (!list || !list.length) return null;
+  list = list.filter(x => x.interview || x.step1 || x.result || x.nonsul);
+  if (!list.length) return null;
+  const nt = cleanTypeName(typeName);
+  let best = null, bs = 0;
+  for (const it of list) {
+    const sc = typeSim(nt, cleanTypeName(it.name));
+    if (sc > bs) { bs = sc; best = it; }
+  }
+  if (bs >= 0.5) return best;
+  // 이름이 안 맞아도 그 대학·유형의 일정이 하나뿐이면 공통 일정으로 사용
+  const uniq = new Set(list.map(x => [x.step1,x.nonsul,x.interview,x.result].join('|')));
+  return uniq.size === 1 ? list[0] : null;
+}
+// 일정 표시용 HTML (카드 안에 들어감)
+function schedHtml(univ, kind, typeName) {
+  const s = lookupSched(univ, kind, typeName);
+  if (!s) return '';
+  const rows = [];
+  if (s.step1)     rows.push(['1단계발표', s.step1]);
+  if (s.nonsul)    rows.push(['논술', s.nonsul]);
+  if (s.interview) rows.push(['면접', s.interview]);
+  if (s.result)    rows.push(['최종발표', s.result]);
+  if (!rows.length) return '';
+  return `<div style="margin-top:7px;padding-top:6px;border-top:1px dashed rgba(0,0,0,.12)">
+    <div style="font-size:9px;opacity:.65;margin-bottom:3px">2027 전형일정${s.gosi?` · 고사 ${s.gosi}`:''}</div>
+    ${rows.map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:10px;line-height:1.5"><span style="opacity:.7">${k}</span><span style="font-family:var(--mono);text-align:right">${escapeHtml(v)}</span></div>`).join('')}
+  </div>`;
+}
 
 async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
@@ -942,14 +1013,16 @@ async function loadCsvFromStorage() {
   }
   // 최저기준·종합전형 시트는 실패해도 메인 기능에 영향 없음
   try {
-    const [resMin, resJong, resCases, resCalc] = await Promise.allSettled([
+    const [resMin, resJong, resCases, resCalc, resSched] = await Promise.allSettled([
       fetch(bust(SHEET_MIN_URL), {cache:'reload'}), fetch(bust(SHEET_JONG_URL), {cache:'reload'}),
-      fetch(bust('cases.json'), {cache:'reload'}), fetch(bust('data/jeongsi_calc.csv'), {cache:'reload'})
+      fetch(bust('cases.json'), {cache:'reload'}), fetch(bust('data/jeongsi_calc.csv'), {cache:'reload'}),
+      fetch(bust('data/schedule2027.csv'), {cache:'reload'})
     ]);
     if (resMin.status==='fulfilled' && resMin.value.ok) { minData = parseCSV(await resMin.value.text()); buildMinMap(); }
     if (resJong.status==='fulfilled' && resJong.value.ok) { jongData = parseCSV(await resJong.value.text()); buildJongMap(); }
     if (resCases.status==='fulfilled' && resCases.value.ok) { casesData = await resCases.value.json(); }
     if (resCalc.status==='fulfilled' && resCalc.value.ok) { buildJeongsiCalc(parseCSV(await resCalc.value.text())); }
+    if (resSched.status==='fulfilled' && resSched.value.ok) { buildSchedMap(parseCSV(await resSched.value.text())); }
   } catch(_) {}
 }
 
@@ -1909,11 +1982,13 @@ function showDetail(i) {
       ${naesin!==null?`<div class="dcard-line">내 내신 <span>${naesin.toFixed(2)}등급</span></div>`:''}
       <div class="dcard-diff">${fmtMargin(best.diff, true, '등급')}</div>
       ${chungLine(best.chung)}
+      ${schedHtml(s.univ, label==='교과전형'?'교과':'종합', best.name)}
       ${others.map(o=>`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08)">
         <div class="typename">${o.name}</div>
         <div class="dcard-line">합격선 70% <span>${o.cut70.toFixed(2)}등급</span></div>
         <div style="font-size:10px;font-family:var(--mono);font-weight:700;color:inherit">${fmtMargin(o.diff, true, '등급')}</div>
         ${chungLine(o.chung)}
+        ${schedHtml(s.univ, label==='교과전형'?'교과':'종합', o.name)}
       </div>`).join('')}
       ${methodBlock}
     </div>`;
@@ -1962,6 +2037,25 @@ function showDetail(i) {
       ${cards}
     </div>
     ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : ''}
+    ${(() => {
+      // 논술전형 일정 (해당 대학에 논술이 있을 때)
+      const list = schedMap.get(normUnivKey(s.univ) + '|논술') || [];
+      const items = list.filter(x => x.nonsul || x.result || x.step1);
+      if (!items.length) return '';
+      const rows = items.map(x => `
+        <div class="mc-item" style="padding:8px 4px;">
+          <span class="mc-type">논술</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text-2);margin-left:4px">${escapeHtml(x.name)}</span>
+          <div style="margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;">
+            ${x.nonsul?`<span>논술 <strong style="font-family:var(--mono)">${escapeHtml(x.nonsul)}</strong></span>`:''}
+            ${x.step1?`<span>1단계발표 <strong style="font-family:var(--mono)">${escapeHtml(x.step1)}</strong></span>`:''}
+            ${x.result?`<span>최종발표 <strong style="font-family:var(--mono)">${escapeHtml(x.result)}</strong></span>`:''}
+          </div>
+        </div>`).join('');
+      return `<div class="m-sec"><h4>논술전형 일정 <span style="font-size:10px;color:var(--text-3);font-weight:400">2027 · 대학 공통</span></h4>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:2px 12px;">${rows}</div>
+      </div>`;
+    })()}
     ${(() => {
       const minItems = lookupMin(s.univ, s.dept, s.series);
       if (!minItems.length) return '';
