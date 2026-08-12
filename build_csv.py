@@ -231,22 +231,29 @@ for sheet_name, out_name in SHEETS:
             if os.path.exists(cpath):
                 cnu = lambda s: re.sub(r'\s','',str(s or '')).replace('대학교','대').replace('학교','')
                 cnu2 = lambda s: re.sub(r'\([^)]*\)','', cnu(s))   # 캠퍼스 표기 제거
-                def cnd(s):
-                    d = re.sub(r'\s','',str(s or ''))
-                    d = re.sub(r'^\[[^\]]*\]','', d)               # '[유형1] ' 접두 제거
+                def _sufcut(d):
                     for suf in ('학과','학부','전공'):
                         if d.endswith(suf) and len(d) > len(suf) + 1: return d[:-len(suf)]
                     return d
+                def cnd(s):
+                    d = re.sub(r'\s','',str(s or ''))
+                    d = re.sub(r'^\[[^\]]*\]','', d)               # '[유형1] ' 접두 제거
+                    return _sufcut(d)
+                def cnd3(s):                                        # 끝 괄호(계열) 제거: 간호학과(인문) → 간호
+                    d = re.sub(r'\s','',str(s or ''))
+                    d = re.sub(r'^\[[^\]]*\]','', d)
+                    return _sufcut(re.sub(r'\([^)]*\)$','', d))
                 with open(cpath, encoding='utf-8') as cf:
                     cuts_all = list(csv.DictReader(cf))
                 if True:
-                    cmap, cmap2 = {}, {}
+                    cmap, cmap2, cmap3 = {}, {}, {}
                     for cr in cuts_all:
                         try: v = float(cr['컷70'])
                         except: continue
                         if not (0.5 <= v <= 9): continue
                         cmap.setdefault((cnu(cr['대학명']), cnd(cr['모집단위']), cr['유형']), []).append(cr)
                         cmap2.setdefault((cnu2(cr['대학명']), cnd(cr['모집단위']), cr['유형']), []).append(cr)
+                        cmap3.setdefault((cnu2(cr['대학명']), cnd3(cr['모집단위']), cr['유형']), []).append(cr)
                 # 전형명 정규화·유사도 (요강은 '학생부교과(추천형)' 형식)
                 def ctn(s):
                     v = str(s or '')
@@ -267,7 +274,8 @@ for sheet_name, out_name in SHEETS:
                 for r in rows[1:]:
                     for kind, pairs in slots.items():
                         items = (cmap.get((cnu(r[univ_i]), cnd(r[dept_i]), kind))
-                                 or cmap2.get((cnu2(r[univ_i]), cnd(r[dept_i]), kind)))
+                                 or cmap2.get((cnu2(r[univ_i]), cnd(r[dept_i]), kind))
+                                 or cmap3.get((cnu2(r[univ_i]), cnd3(r[dept_i]), kind)))
                         if not items: continue
                         idxs = [(hdr.index(a), hdr.index(b)) for a, b in pairs if a in hdr and b in hdr]
                         used = set()
