@@ -248,6 +248,8 @@ for sheet_name, out_name in SHEETS:
                 if True:
                     cmap, cmap2, cmap3 = {}, {}, {}
                     for cr in cuts_all:
+                        base = cr.get('기준','')
+                        if '환산' in base: continue          # 환산점수는 등급이 아니므로 컷으로 못 씀
                         try: v = float(cr['컷70'])
                         except: continue
                         if not (0.5 <= v <= 9): continue
@@ -337,6 +339,28 @@ for sheet_name, out_name in SHEETS:
                         r[vi] = f'{v}'; r[si] = f'{nm} · {tname}'
                         bfill += 1
                 print(f'    └ 광역(단과대/계열) 참고컷 부여: {bfill}건')
+
+                # 환산점수 발표 대학(한국외대 등) — 등급이 아니라 참고 표시용으로 저장
+                conv = {}
+                for cr in cuts_all:
+                    if '환산' not in cr.get('기준',''): continue
+                    v = cr.get('컷70','').strip()
+                    if not v: continue
+                    for key in ((cnu(cr['대학명']), cnd(cr['모집단위']), cr['유형']),
+                                (cnu2(cr['대학명']), cnd3(cr['모집단위']), cr['유형'])):
+                        conv.setdefault(key, (v, cr['기준'], cr['전형명']))
+                for col in ('교과환산/70%','종합환산/70%'):
+                    if col not in hdr: hdr.append(col)
+                cg, cj = hdr.index('교과환산/70%'), hdr.index('종합환산/70%')
+                cfill = 0
+                for r in rows[1:]:
+                    while len(r) < len(hdr): r.append('')
+                    for kind, ci in (('교과', cg), ('종합', cj)):
+                        hit = (conv.get((cnu(r[univ_i]), cnd(r[dept_i]), kind))
+                               or conv.get((cnu2(r[univ_i]), cnd3(r[dept_i]), kind)))
+                        if hit and not r[ci].strip():
+                            r[ci] = f'{hit[0]} ({hit[2]})'; cfill += 1
+                print(f'    └ 환산점수 발표 대학 참고값: {cfill}건')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)

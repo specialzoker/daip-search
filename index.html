@@ -856,6 +856,7 @@ const C = {
   gyoCap:'모집인원_교과', jongCap:'모집인원_종합', suCap:'모집인원_정시',
   dept2027:'2027모집단위', su_code:'26정시코드',
   bg70:'교과광역/70%', bgsrc:'교과광역/출처', bj70:'종합광역/70%', bjsrc:'종합광역/출처',
+  cg70:'교과환산/70%', cj70:'종합환산/70%',
   g1_70_5:'교과1/70%(5등급)', g1_50_5:'교과1/50%(5등급)',
   g2_70_5:'교과2/70%(5등급)', g2_50_5:'교과2/50%(5등급)',
   g3_70_5:'교과3/70%(5등급)', g3_50_5:'교과3/50%(5등급)',
@@ -920,7 +921,7 @@ let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항�
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 // 데이터 갱신 시 브라우저 캐시가 옛 파일을 쓰지 않도록 URL에 버전 부여
-const DATA_VER = '20260710f';
+const DATA_VER = '20260710g';
 const bust = url => url + (url.includes('?') ? '&' : '?') + 'v=' + DATA_VER;
 
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
@@ -1421,6 +1422,7 @@ function doSearch() {
         dept2027: (row[C.dept2027]||'').trim(),
         bg70:(row[C.bg70]||'').trim(), bgsrc:(row[C.bgsrc]||'').trim(),
         bj70:(row[C.bj70]||'').trim(), bjsrc:(row[C.bjsrc]||'').trim(),
+        cg70:(row[C.cg70]||'').trim(), cj70:(row[C.cj70]||'').trim(),
         chg_type:(row[C.chg_type]||'').trim(), chg_dept:(row[C.chg_dept]||'').trim(),
         gyoMethod:(row[C.gyoMethod]||'').trim(), jongMethod:(row[C.jongMethod]||'').trim(), suMethod:(row[C.suMethod]||'').trim(),
         gyoCap:(row[C.gyoCap]||'').trim(), jongCap:(row[C.jongCap]||'').trim(), suCap:(row[C.suCap]||'').trim(),
@@ -1729,7 +1731,8 @@ function render() {
       if (!data) {
         // 교과·종합은 내신이 있어야 판정됨 — 미입력이면 원인을 알려줌
         const needNaesin = isGrade && n(document.getElementById('naesin').value) == null;
-        const note = needNaesin ? '내신 입력 필요' : '데이터없음';
+        const convV = label==='교과' ? s.cg70 : label==='종합' ? s.cj70 : '';
+        const note = needNaesin ? '내신 입력 필요' : convV ? '환산점수 발표' : '데이터없음';
         return `<div class="vc vc-none"><div class="vc-type">${label}</div><div class="vc-label">—</div><div class="vc-diff" style="color:var(--text-3);font-size:9px">${note}</div></div>`;
       }
       const cls = {'안정':'vc-stable','가능':'vc-up','경계':'vc-mid','위험':'vc-dn','안돼안돼ㅠ':'vc-stop'}[data.verdict]||'vc-none';
@@ -1948,6 +1951,13 @@ function showDetail(i) {
       // 학과 단위 컷이 없을 때, 그 대학의 광역(단과대/계열) 모집 컷을 참고로 안내
       const bv  = label==='교과전형' ? s.bg70  : label==='종합전형' ? s.bj70  : '';
       const bsrc= label==='교과전형' ? s.bgsrc : label==='종합전형' ? s.bjsrc : '';
+      // 환산점수로 입결을 발표하는 대학(한국외대 등) — 등급 판정 불가, 값만 안내
+      const cv  = label==='교과전형' ? s.cg70  : label==='종합전형' ? s.cj70  : '';
+      const convBox = cv ? `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:10px;line-height:1.5;color:#1d4ed8">
+          <div style="opacity:.8">환산점수로 발표하는 대학</div>
+          <div><strong style="font-family:var(--mono);font-size:12px">70%컷 ${escapeHtml(cv)}</strong></div>
+          <div style="opacity:.75;margin-top:2px">※ 등급이 아니라 대학 환산점수 → 등급 판정 불가</div>
+        </div>` : '';
       const broad = (bv && bsrc) ? `<div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,.05);border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-2)">
           <div style="opacity:.7">이 대학 광역모집 참고</div>
           <div><strong style="font-family:var(--mono);font-size:12px">${bv}등급</strong> · ${escapeHtml(bsrc)}</div>
@@ -1956,6 +1966,7 @@ function showDetail(i) {
       return `<div class="dcard dc-none">
         <div class="dcard-type">${label}</div>
         <div class="dcard-verdict" style="color:var(--text-3)">데이터 없음</div>
+        ${convBox}
         ${broad}
         ${methodBlock}
       </div>`;
