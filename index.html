@@ -919,7 +919,7 @@ let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항�
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 // 데이터 갱신 시 브라우저 캐시가 옛 파일을 쓰지 않도록 URL에 버전 부여
-const DATA_VER = '20260710c';
+const DATA_VER = '20260710d';
 const bust = url => url + (url.includes('?') ? '&' : '?') + 'v=' + DATA_VER;
 
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
@@ -933,16 +933,20 @@ function buildSchedMap(rows) {
     const u = normUnivKey((r['대학명']||'').trim());
     const kind = (r['유형']||'').trim();
     if (!u || !kind) continue;
-    const key = u + '|' + kind;
-    if (!schedMap.has(key)) schedMap.set(key, []);
-    schedMap.get(key).push({
+    const u2 = u.replace(/\([^)]*\)/g, '');   // 캠퍼스 표기 제거 키도 등록
+    const keys = u2 && u2 !== u ? [u+'|'+kind, u2+'|'+kind] : [u+'|'+kind];
+    const item = {
       name:      (r['전형명']||'').trim(),
       step1:     (r['1단계발표']||'').trim(),
       nonsul:    (r['논술일정']||'').trim(),
       interview: (r['면접일정']||'').trim(),
       result:    (r['합격발표']||'').trim(),
       gosi:      (r['고사시기']||'').trim(),
-    });
+    };
+    for (const k of keys) {
+      if (!schedMap.has(k)) schedMap.set(k, []);
+      schedMap.get(k).push(item);
+    }
   }
 }
 // 요강 전형명 정규화 — "학생부종합(광운참빛인재전형Ⅱ-서류형)" → "광운참빛인재Ⅱ서류"
@@ -963,10 +967,17 @@ function typeSim(a, b) {
   if (!grams.length) grams.push(sh);
   return grams.filter(g => lo.includes(g)).length / grams.length;
 }
+// 대학+유형 일정 목록 (캠퍼스 표기 차이 폴백)
+function schedList(univ, kind) {
+  const u = normUnivKey(univ);
+  return schedMap.get(u + '|' + kind)
+      || schedMap.get(u.replace(/\([^)]*\)/g,'') + '|' + kind)
+      || [];
+}
 // 대학+유형+전형명으로 일정 찾기 (이름 유사도 → 대학 공통 일정 폴백)
 function lookupSched(univ, kind, typeName) {
-  let list = schedMap.get(normUnivKey(univ) + '|' + kind);
-  if (!list || !list.length) return null;
+  let list = schedList(univ, kind);
+  if (!list.length) return null;
   list = list.filter(x => x.interview || x.step1 || x.result || x.nonsul);
   if (!list.length) return null;
   const nt = cleanTypeName(typeName);
@@ -2039,7 +2050,7 @@ function showDetail(i) {
     ${jongInfoHtml ? `<div class="m-sec"><h4>종합전형 정보</h4>${jongInfoHtml}</div>` : ''}
     ${(() => {
       // 논술전형 일정 (해당 대학에 논술이 있을 때)
-      const list = schedMap.get(normUnivKey(s.univ) + '|논술') || [];
+      const list = schedList(s.univ, '논술');
       const items = list.filter(x => x.nonsul || x.result || x.step1);
       if (!items.length) return '';
       const rows = items.map(x => `
