@@ -1639,7 +1639,12 @@ function render() {
     const suData   = s.su;
 
     const cell = (label, data, isGrade) => {
-      if (!data) return `<div class="vc vc-none"><div class="vc-type">${label}</div><div class="vc-label">—</div><div class="vc-diff" style="color:var(--text-3);font-size:9px">데이터없음</div></div>`;
+      if (!data) {
+        // 교과·종합은 내신이 있어야 판정됨 — 미입력이면 원인을 알려줌
+        const needNaesin = isGrade && n(document.getElementById('naesin').value) == null;
+        const note = needNaesin ? '내신 입력 필요' : '데이터없음';
+        return `<div class="vc vc-none"><div class="vc-type">${label}</div><div class="vc-label">—</div><div class="vc-diff" style="color:var(--text-3);font-size:9px">${note}</div></div>`;
+      }
       const cls = {'안정':'vc-stable','가능':'vc-up','경계':'vc-mid','위험':'vc-dn','안돼안돼ㅠ':'vc-stop'}[data.verdict]||'vc-none';
       const unit = isGrade ? '등급' : '%';
       const fbTag = (!isGrade && data.isFallback)
