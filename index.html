@@ -918,6 +918,10 @@ let minMap   = new Map(); // key: `대학명|모집단위` → [{type,name,min,n
 let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항목 배열 (스마트 매칭용)
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
+// 데이터 갱신 시 브라우저 캐시가 옛 파일을 쓰지 않도록 URL에 버전 부여
+const DATA_VER = '20260710';
+const bust = url => url + (url.includes('?') ? '&' : '?') + 'v=' + DATA_VER;
+
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
 let jeongsiCalcMap = {};  // 정시코드 → {eng:[9], area:[4], ratio:[4]} 대학별 환산 규칙
 
@@ -925,7 +929,7 @@ async function loadCsvFromStorage() {
   setStatus('loading', '데이터 불러오는 중...');
   setBody(`<div class="spin-wrap"><div class="spinner"></div><span style="font-size:12px;color:var(--text-3)">데이터 불러오는 중...</span></div>`);
   try {
-    const res = await fetch(SHEET_CSV_URL);
+    const res = await fetch(bust(SHEET_CSV_URL), {cache:'reload'});
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     rawData = parseCSV(text);
@@ -939,7 +943,8 @@ async function loadCsvFromStorage() {
   // 최저기준·종합전형 시트는 실패해도 메인 기능에 영향 없음
   try {
     const [resMin, resJong, resCases, resCalc] = await Promise.allSettled([
-      fetch(SHEET_MIN_URL), fetch(SHEET_JONG_URL), fetch('cases.json'), fetch('data/jeongsi_calc.csv')
+      fetch(bust(SHEET_MIN_URL), {cache:'reload'}), fetch(bust(SHEET_JONG_URL), {cache:'reload'}),
+      fetch(bust('cases.json'), {cache:'reload'}), fetch(bust('data/jeongsi_calc.csv'), {cache:'reload'})
     ]);
     if (resMin.status==='fulfilled' && resMin.value.ok) { minData = parseCSV(await resMin.value.text()); buildMinMap(); }
     if (resJong.status==='fulfilled' && resJong.value.ok) { jongData = parseCSV(await resJong.value.text()); buildJongMap(); }
@@ -1167,7 +1172,7 @@ const dash = v => (!v||v==='-'||String(v).toLowerCase()==='nan')?null:String(v).
 // ════════════════════════════════════════════════════
 let curYear = parseInt(localStorage.getItem('snavi_year')||'3', 10);
 let grade5Tbl = null;
-fetch('grade5.json').then(r=>r.ok?r.json():null).then(d=>{ grade5Tbl=d; updateNaesinUI(); });
+fetch(bust('grade5.json'), {cache:'reload'}).then(r=>r.ok?r.json():null).then(d=>{ grade5Tbl=d; updateNaesinUI(); });
 
 function setYear(y){
   curYear = y;
