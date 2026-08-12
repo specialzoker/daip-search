@@ -242,23 +242,49 @@ for sheet_name, out_name in SHEETS:
                         except: continue
                         if not (0.5 <= v <= 9): continue
                         cmap.setdefault((cnu(cr['대학명']), cnd(cr['모집단위']), cr['유형']), []).append(cr)
+                # 전형명 정규화·유사도 (요강은 '학생부교과(추천형)' 형식)
+                def ctn(s):
+                    v = str(s or '')
+                    m = re.search(r'\(([^)]*)\)\s*$', v)
+                    if m and len(m.group(1)) >= 2: v = m.group(1)
+                    v = re.sub(r'학생부종합|학생부교과|논술위주|논술|전형|형$', '', v)
+                    return re.sub(r'[^0-9A-Za-z가-힣]', '', v)
+                def tsim(a, b):
+                    if not a or not b: return 0
+                    if a == b: return 1
+                    if a in b or b in a: return 0.9
+                    sh, lo = (a, b) if len(a) <= len(b) else (b, a)
+                    g = [sh[i:i+2] for i in range(len(sh)-1)] or [sh]
+                    return sum(1 for x in g if x in lo)/len(g)
                 slots = {'교과': [('교과1/전형','교과1/70%'),('교과2/전형','교과2/70%'),('교과3/전형','교과3/70%')],
                          '종합': [('종합1/전형','종합1/70%'),('종합2/전형','종합2/70%')]}
-                filled = 0
+                fill_cut = fill_new = 0
                 for r in rows[1:]:
                     for kind, pairs in slots.items():
                         items = cmap.get((cnu(r[univ_i]), cnd(r[dept_i]), kind))
                         if not items: continue
                         idxs = [(hdr.index(a), hdr.index(b)) for a, b in pairs if a in hdr and b in hdr]
-                        have = {r[ti].strip() for ti, _ in idxs if r[ti].strip()}
+                        used = set()
                         for it in items:
-                            if it['전형명'] in have: continue          # 같은 전형 이미 있음
+                            nit = ctn(it['전형명'])
+                            # 1) 같은 전형이 이미 있고 컷만 비었으면 컷 채움
+                            hit = None
                             for ti, ci in idxs:
+                                if (ti, ci) in used or not r[ti].strip(): continue
+                                if tsim(nit, ctn(r[ti])) >= 0.5: hit = (ti, ci); break
+                            if hit:
+                                ti, ci = hit; used.add(hit)
+                                if not r[ci].strip():
+                                    r[ci] = it['컷70']; fill_cut += 1
+                                continue
+                            # 2) 없으면 완전히 빈 슬롯에 전형명+컷 추가
+                            for ti, ci in idxs:
+                                if (ti, ci) in used: continue
                                 if not r[ti].strip() and not r[ci].strip():
                                     r[ti] = it['전형명']; r[ci] = it['컷70']
-                                    have.add(it['전형명']); filled += 1
+                                    used.add((ti, ci)); fill_new += 1
                                     break
-                print(f'    └ 2027요강 70%컷 보완: {filled}건 (빈 슬롯만)')
+                print(f'    └ 2027요강 70%컷 보완: 기존전형 컷채움 {fill_cut}건, 신규전형 {fill_new}건')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)
