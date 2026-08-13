@@ -361,6 +361,30 @@ for sheet_name, out_name in SHEETS:
                         if hit and not r[ci].strip():
                             r[ci] = f'{hit[0]} ({hit[2]})'; cfill += 1
                 print(f'    └ 환산점수 발표 대학 참고값: {cfill}건')
+
+                # 모집은 하지만 입결 미공개인 전형 표시 (서경대·성신여대 등)
+                opath = os.path.join(DATA_DIR, 'offer2027.csv')
+                if os.path.exists(opath):
+                    with open(opath, encoding='utf-8') as of:
+                        omap = {}
+                        for orow in csv.DictReader(of):
+                            for key in ((cnu(orow['대학명']), cnd(orow['모집단위']), orow['유형']),
+                                        (cnu2(orow['대학명']), cnd3(orow['모집단위']), orow['유형'])):
+                                omap.setdefault(key, orow['전형명'])
+                    for col in ('교과모집/전형','종합모집/전형'):
+                        if col not in hdr: hdr.append(col)
+                    og, oj = hdr.index('교과모집/전형'), hdr.index('종합모집/전형')
+                    ofill = 0
+                    for r in rows[1:]:
+                        while len(r) < len(hdr): r.append('')
+                        for kind, oi, cols in (('교과', og, ['교과1/70%','교과2/70%','교과3/70%']),
+                                               ('종합', oj, ['종합1/70%','종합2/70%'])):
+                            if any(r[hdr.index(c)].strip() for c in cols if c in hdr): continue
+                            hit = (omap.get((cnu(r[univ_i]), cnd(r[dept_i]), kind))
+                                   or omap.get((cnu2(r[univ_i]), cnd3(r[dept_i]), kind)))
+                            if hit and not r[oi].strip():
+                                r[oi] = hit; ofill += 1
+                    print(f'    └ 모집O·입결 미공개 표시: {ofill}건')
     with open(out_path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerows(rows)
