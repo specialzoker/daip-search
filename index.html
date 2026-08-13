@@ -922,7 +922,7 @@ let minMapByUniv = new Map(); // key: 정규화 대학명 → 최저기준 항�
 let jongData = [];
 let jongMap  = new Map(); // key: `대학명|전형명` → {step1, interview, factors, talent}
 // 데이터 갱신 시 브라우저 캐시가 옛 파일을 쓰지 않도록 URL에 버전 부여
-const DATA_VER = '20260710h';
+const DATA_VER = '20260710i';
 const bust = url => url + (url.includes('?') ? '&' : '?') + 'v=' + DATA_VER;
 
 let casesData = null;     // 학과별 합격 사례 통계 (대학명|모집단위 → {교과,종합,정시})
@@ -1425,6 +1425,8 @@ function doSearch() {
         bj70:(row[C.bj70]||'').trim(), bjsrc:(row[C.bjsrc]||'').trim(),
         cg70:(row[C.cg70]||'').trim(), cj70:(row[C.cj70]||'').trim(),
         og:(row[C.og]||'').trim(), oj:(row[C.oj]||'').trim(),
+        gyoYear:(row['교과/입결연도']||'').trim(), jongYear:(row['종합/입결연도']||'').trim(),
+        gyoBasis:(row['교과/입결기준']||'').trim(), jongBasis:(row['종합/입결기준']||'').trim(),
         chg_type:(row[C.chg_type]||'').trim(), chg_dept:(row[C.chg_dept]||'').trim(),
         gyoMethod:(row[C.gyoMethod]||'').trim(), jongMethod:(row[C.jongMethod]||'').trim(), suMethod:(row[C.suMethod]||'').trim(),
         gyoCap:(row[C.gyoCap]||'').trim(), jongCap:(row[C.jongCap]||'').trim(), suCap:(row[C.suCap]||'').trim(),
@@ -1736,7 +1738,7 @@ function render() {
         const convV = label==='교과' ? s.cg70 : label==='종합' ? s.cj70 : '';
         const offV  = label==='교과' ? s.og   : label==='종합' ? s.oj   : '';
         const note = needNaesin ? '내신 입력 필요' : convV ? '환산점수 발표'
-                   : offV ? '입결 미공개' : '데이터없음';
+                   : offV ? (offV.endsWith('신설') ? '2027 신설' : '입결 미공개') : '데이터없음';
         return `<div class="vc vc-none"><div class="vc-type">${label}</div><div class="vc-label">—</div><div class="vc-diff" style="color:var(--text-3);font-size:9px">${note}</div></div>`;
       }
       const cls = {'안정':'vc-stable','가능':'vc-up','경계':'vc-mid','위험':'vc-dn','안돼안돼ㅠ':'vc-stop'}[data.verdict]||'vc-none';
@@ -1957,7 +1959,8 @@ function showDetail(i) {
       const bsrc= label==='교과전형' ? s.bgsrc : label==='종합전형' ? s.bjsrc : '';
       // 환산점수로 입결을 발표하는 대학(한국외대 등) — 등급 판정 불가, 값만 안내
       const cv  = label==='교과전형' ? s.cg70  : label==='종합전형' ? s.cj70  : '';
-      const offerT = label==='교과전형' ? s.og : label==='종합전형' ? s.oj : '';
+      const offRaw = label==='교과전형' ? s.og : label==='종합전형' ? s.oj : '';
+      const [offerT, offerWhy] = offRaw ? offRaw.split('|') : ['',''];
       const convBox = cv ? `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:10px;line-height:1.5;color:#1d4ed8">
           <div style="opacity:.8">환산점수로 발표하는 대학</div>
           <div><strong style="font-family:var(--mono);font-size:12px">70%컷 ${escapeHtml(cv)}</strong></div>
@@ -1970,10 +1973,10 @@ function showDetail(i) {
         </div>` : '';
       return `<div class="dcard dc-none">
         <div class="dcard-type">${label}</div>
-        <div class="dcard-verdict" style="color:var(--text-3)">${offerT ? '입결 미공개' : '데이터 없음'}</div>
+        <div class="dcard-verdict" style="color:var(--text-3)">${offerT ? (offerWhy==='신설' ? '2027 신설' : '입결 미공개') : '데이터 없음'}</div>
         ${offerT ? `<div style="margin-top:5px;font-size:10px;line-height:1.5;color:var(--text-2)">
             <div><strong>${escapeHtml(offerT)}</strong> 모집</div>
-            <div style="opacity:.7">※ 대학이 입결을 공개하지 않아 판정 불가</div>
+            <div style="opacity:.7">※ ${offerWhy==='신설' ? '2027학년도 신설 전형이라 과거 입결이 없습니다' : '대학이 입결을 공개하지 않아 판정 불가'}</div>
           </div>` : ''}
         ${convBox}
         ${broad}
@@ -2024,6 +2027,13 @@ function showDetail(i) {
       ${(curYear!==3 && best.cut70_5!=null)?`<div class="dcard-line" style="color:#1d4ed8">실제 5등급컷 70% <span>${best.cut70_5.toFixed(2)}</span></div>${best.cut50_5!=null?`<div class="dcard-line" style="color:#1d4ed8">실제 5등급컷 50% <span>${best.cut50_5.toFixed(2)}</span></div>`:''}`:''}
       ${naesin!==null?`<div class="dcard-line">내 내신 <span>${naesin.toFixed(2)}등급</span></div>`:''}
       <div class="dcard-diff">${fmtMargin(best.diff, true, '등급')}</div>
+      ${(() => {
+        const yr = label==='교과전형' ? s.gyoYear  : label==='종합전형' ? s.jongYear  : '';
+        const bs = label==='교과전형' ? s.gyoBasis : label==='종합전형' ? s.jongBasis : '';
+        if (!yr && !bs) return '';
+        const tags = [yr ? `${yr}학년도 입결` : '', bs ? bs.replace('(최종)','') : ''].filter(Boolean);
+        return `<div style="margin-top:4px;font-size:9px;color:var(--mid)">※ ${tags.join(' · ')} 기준</div>`;
+      })()}
       ${chungLine(best.chung)}
       ${schedHtml(s.univ, label==='교과전형'?'교과':'종합', best.name)}
       ${others.map(o=>`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08)">

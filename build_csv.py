@@ -272,8 +272,13 @@ for sheet_name, out_name in SHEETS:
                     return sum(1 for x in g if x in lo)/len(g)
                 slots = {'교과': [('교과1/전형','교과1/70%'),('교과2/전형','교과2/70%'),('교과3/전형','교과3/70%')],
                          '종합': [('종합1/전형','종합1/70%'),('종합2/전형','종합2/70%')]}
+                for col in ('교과/입결연도','종합/입결연도','교과/입결기준','종합/입결기준'):
+                    if col not in hdr: hdr.append(col)
+                yr_i = {'교과': hdr.index('교과/입결연도'), '종합': hdr.index('종합/입결연도')}
+                bs_i = {'교과': hdr.index('교과/입결기준'), '종합': hdr.index('종합/입결기준')}
                 fill_cut = fill_new = 0
                 for r in rows[1:]:
+                    while len(r) < len(hdr): r.append('')
                     for kind, pairs in slots.items():
                         items = (cmap.get((cnu(r[univ_i]), cnd(r[dept_i]), kind))
                                  or cmap2.get((cnu2(r[univ_i]), cnd(r[dept_i]), kind))
@@ -292,6 +297,11 @@ for sheet_name, out_name in SHEETS:
                                 ti, ci = hit; used.add(hit)
                                 if not r[ci].strip():
                                     r[ci] = it['컷70']; fill_cut += 1
+                                    yr, bas = it.get('연도','2026'), it.get('기준','')
+                                    if yr and yr != '2026' and not r[yr_i[kind]].strip():
+                                        r[yr_i[kind]] = yr
+                                    if bas and '70%' not in bas and not r[bs_i[kind]].strip():
+                                        r[bs_i[kind]] = bas
                                 continue
                             # 2) 없으면 완전히 빈 슬롯에 전형명+컷 추가
                             for ti, ci in idxs:
@@ -299,6 +309,11 @@ for sheet_name, out_name in SHEETS:
                                 if not r[ti].strip() and not r[ci].strip():
                                     r[ti] = it['전형명']; r[ci] = it['컷70']
                                     used.add((ti, ci)); fill_new += 1
+                                    yr, bas = it.get('연도','2026'), it.get('기준','')
+                                    if yr and yr != '2026' and not r[yr_i[kind]].strip():
+                                        r[yr_i[kind]] = yr
+                                    if bas and '70%' not in bas and not r[bs_i[kind]].strip():
+                                        r[bs_i[kind]] = bas
                                     break
                 print(f'    └ 2027요강 70%컷 보완: 기존전형 컷채움 {fill_cut}건, 신규전형 {fill_new}건')
 
@@ -370,7 +385,7 @@ for sheet_name, out_name in SHEETS:
                         for orow in csv.DictReader(of):
                             for key in ((cnu(orow['대학명']), cnd(orow['모집단위']), orow['유형']),
                                         (cnu2(orow['대학명']), cnd3(orow['모집단위']), orow['유형'])):
-                                omap.setdefault(key, orow['전형명'])
+                                omap.setdefault(key, f"{orow['전형명']}|{orow.get('사유','미공개')}")
                     for col in ('교과모집/전형','종합모집/전형'):
                         if col not in hdr: hdr.append(col)
                     og, oj = hdr.index('교과모집/전형'), hdr.index('종합모집/전형')
